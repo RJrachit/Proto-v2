@@ -1,0 +1,133 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+// House (partial) - Basketball hoops: the wall-mounted board on lawn houses and the hoop/ring scoring.
+// The main part of the class is in House.cs.
+public partial class House
+{
+    // A backboard and ring on the house wall, over the lawn, for lawn houses only. The paved-yard houses have the standing hoop (Yard.Hoop)
+    // instead, so a house never has both. Uses the same ring zone, so it scores like the standing hoop: a delivery at a customer's, a bonus elsewhere.
+    // On a house with a porch roof the ring may stand just beside the roof (the roof trick shot): the roof leans towards the ring, and a paper
+    // that lands on the slope towards the ring slides off into the ring (plain physics, see SetUpRoofShot). The roof then becomes a gable that
+    // stands higher, and the ring hangs lower, just below the roof's low edge.
+    bool wallHoop;
+    const float RoofRingGap = 1.72f;       // ring centre from the door centre when it stands beside the porch roof
+
+    void LayoutWallHoop(float L, float doorZ, bool wallMail, float mailZ, bool customer)
+    {
+        if (hoopZone == null || hoopSnapT == null || L < 4.2f) return;
+        bool porchOn = porchRoofT != null && porchRoofT.gameObject.activeSelf;
+        float h = Hash01(transform.position.z * 0.419f + (side > 0 ? 17.3f : 52.1f));
+        float chance = customer ? (porchOn ? 0.7f : 0.5f) : (porchOn ? 0.45f : 0.3f);   // porch houses get more: they hold the trick shot
+        if (h >= chance) return;
+
+        float half = L * 0.5f;
+        float hz = 0f;
+        int dir = 0;   // which way the roof leans (towards the ring); 0 = an ordinary wall hoop
+
+        // beside the porch roof, if there is room on either side
+        if (porchOn)
+        {
+            int first = Hash01(h * 57.3f + 1.9f) < 0.5f ? 1 : -1;
+            for (int k = 0; k < 2 && dir == 0; k++)
+            {
+                int d2 = k == 0 ? first : -first;
+                float z = doorZ + d2 * RoofRingGap;
+                if (z > -half + 0.9f && z < half - 0.9f && !BalconyAbove(z, 1.3f) && !(wallMail && Mathf.Abs(z - mailZ) < 1.6f))
+                { dir = d2; hz = z; }
+            }
+        }
+
+        // otherwise a spot along the wall, clear of the door, the balcony and a wall mailbox
+        if (dir == 0)
+        {
+            int found = 0;
+            float[] ok = new float[16];
+            for (float z = -half + 1.3f; z <= half - 1.3f && found < ok.Length; z += 0.6f)
+            {
+                if (Mathf.Abs(z - doorZ) < 1.9f) continue;
+                if (BalconyAbove(z, 1.3f)) continue;
+                if (wallMail && Mathf.Abs(z - mailZ) < 1.6f) continue;
+                ok[found++] = z;
+            }
+            if (found == 0) return;
+            hz = ok[Mathf.Min(found - 1, (int)(Hash01(h * 91.7f + 3.1f) * found))];
+        }
+        bool combo = dir != 0;
+
+        float s = side;
+        float ringY = combo ? 2.45f : 3.1f;
+        float ringX = s * 7.88f;   // 7 cm clear of the board, like the other hoops
+        WallBoard(ringY, combo ? 0.28f : 0.4f, combo ? 0.8f : 1.05f, hz);   // (the combo board is lower and shorter, so it clears the ground-floor windows)
+        RingParts(ringX, ringY, hz);
+
+        SetZone(hoopZone, new Vector3(ringX, ringY, hz), new Vector3(0.9f, 0.6f, 0.9f));
+        hoopZone.openingHalf = 0f;
+        hoopSnapT.localPosition = new Vector3(ringX, ringY - 0.5f, hz);
+        hoopZone.gameObject.SetActive(true);
+        wallHoop = true;
+        if (combo) LayoutPorchRoof(dir, doorZ, true);   // the roof towards the ring feeds it (the trick shot)
+    }
+
+    // The board on the house wall with its ring bracket: ringY = ring height, by = board centre above the ring, bh = board height.
+    void WallBoard(float ringY, float by, float bh, float hz)
+    {
+        float s = side;
+        float wallX = s * 8.47f;
+        Color frame = new Color(0.25f, 0.28f, 0.34f);
+        var board = Part(new Vector3(wallX - s * 0.05f, ringY + by, hz), new Vector3(0.1f, bh, 1.6f), Color.white, true);   // backboard
+        SoftBoard(board);
+        Part(new Vector3(wallX - s * 0.11f, ringY + by - 0.12f, hz), new Vector3(0.04f, bh * 0.48f, 0.7f), new Color(0.55f, 0.65f, 0.80f), false);   // the square
+        Part(new Vector3(wallX - s * 0.02f, ringY + by, hz), new Vector3(0.12f, bh + 0.07f, 1.68f), frame, false);                  // dark edge behind
+        Part(new Vector3(s * 8.12f, ringY, hz), new Vector3(0.5f, 0.06f, 0.06f), frame, false);                                    // ring bracket
+    }
+
+    // A ring (solid, dead rim) and its stringy net (not solid) centred on (x, y, z).
+    void RingParts(float x, float y, float z)
+    {
+        for (int k = 0; k < 8; k++)
+        {
+            float a = k * 45f * Mathf.Deg2Rad;
+            SoftRim(Part(new Vector3(x + Mathf.Cos(a) * 0.45f, y, z + Mathf.Sin(a) * 0.45f),
+                 new Vector3(0.08f, 0.08f, 0.38f), new Color(1.00f, 0.85f, 0.20f), true, new Vector3(0f, -k * 45f, 0f)));
+        }
+        for (int k = 0; k < 4; k++)
+        {
+            float a = (k * 90f + 45f) * Mathf.Deg2Rad;
+            Part(new Vector3(x + Mathf.Cos(a) * 0.38f, y - 0.27f, z + Mathf.Sin(a) * 0.38f),
+                 new Vector3(0.03f, 0.5f, 0.03f), Color.white, false);
+        }
+    }
+
+    // A paper dropped through one of the rings. At a customer's house the hoop is a delivery; elsewhere a small bonus, once per ring.
+    // A paper that bounced off anything but a backboard or ring before going in (trick) pays the basket again on top (twice a normal basket in all), once, with a big fiery burst.
+    public void HandleHoop(HouseTarget zone, Vector3 pos, bool snapped, bool trick = false)
+    {
+        var gm = GameManager.Instance;
+        if (gm == null) return;
+        if (Subscriber)
+        {
+            int before = gm.Streak;
+            int ff = FloorHoopIndex(zone);
+            if (ff > 0)
+            {
+                HandleFloorHoop(ff, pos, trick);   // the ring of an upper floor serves that floor
+                if (gm.Streak == before) gm.CountHit();   // (a ring that was already cleared still counts as a hit)
+                return;
+            }
+            bool open = !resolved && !groundDone && groundFloor;
+            HandleHit(HouseTarget.Kind.Hoop, pos, snapped);
+            if (gm.Streak == before) gm.CountHit();      // (the same for the ground-floor ring)
+            if (open) gm.BasketScored();
+            if (trick && open) gm.TrickBonus(Scoring.Points(HouseTarget.Kind.Hoop, snapped) * (GameConfig.TrickShotMultiplier - 1), "Drunk Dunkkk! +", pos);
+            return;
+        }
+
+        bool second = zone == hoopZone2;
+        if (second ? hoopUsed2 : hoopUsed) { gm.CountHit(); return; }   // (a ring already used pays nothing, but the hit counts)
+        if (second) hoopUsed2 = true; else hoopUsed = true;
+        gm.BasketScored();
+        gm.Bonus(GameConfig.PointsHoopBonus, "Dunkkkk! +", pos);
+        if (trick) gm.TrickBonus(GameConfig.PointsHoopBonus * (GameConfig.TrickShotMultiplier - 1), "Drunk Dunkkk! +", pos);
+    }
+}

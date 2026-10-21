@@ -107,6 +107,7 @@ public partial class House : MonoBehaviour
     const float MarkerAboveRoof = 3.2f;     // the customer marker's height above the walls (the roof ridge is 1.5 m up): clear of the roof, even at the largest size
     float setback;                                   // how far back from the footpath this lot stands (see Setup)
     public float ShopKey = float.NaN;   // where the shop dice are rolled (set once per lot, so stretching the lot does not change them)
+    public bool NoShop;                              // the spawner keeps this lot from being a shop (the easy opening)
     public bool ForceShop;                           // the spawner makes this lot a shop (a filler where plain houses were removed)
     public bool IsBare { get { return bare; } }   // a plain scenery lot with no house (the spawner closes these gaps)
     bool bare;                          // a plain scenery lot with its house left out (see GameConfig.BareScenery)
@@ -156,7 +157,7 @@ public partial class House : MonoBehaviour
         // Some scenery houses are a shop or a restaurant instead: a paved forecourt, awning, sign and lit windows. Never a customer.
         shopKind = 0;
         if (float.IsNaN(ShopKey)) ShopKey = transform.position.z;   // (the spawner clears it for every new lot; a lot that is stretched keeps its shop dice)
-        float shopP = ForceShop ? 1f : GameConfig.SceneryOdds(ShopKey, GameConfig.ShopChance);
+        float shopP = ForceShop ? 1f : (NoShop ? 0f : GameConfig.SceneryOdds(ShopKey, GameConfig.ShopChance));
         if (role == Role.Scenery && !park && !isBeach && length >= 4.2f && shopP > 0f)
         {
             float sh = Hash01(ShopKey * 0.731f + (side > 0 ? 3.7f : 61.9f));
@@ -257,6 +258,7 @@ public partial class House : MonoBehaviour
         if (beachScene != 0) { pathOn = false; if (pathVisualT != null) pathVisualT.gameObject.SetActive(false); }   // picnics, huts and cabins have no path
         float blockZ, blockHalf;
         carN = 0;
+        boardGlowN = 0;   // (the boards laid out below register their glow again)
         LayoutYard(yard, wallMail, flip, out blockZ, out blockHalf);
         PlanWallPad(length, doorZ, wallMail, mailZ, hasTargets && yard == Yard.Lawn);
         PlanWindows();
@@ -327,6 +329,7 @@ public partial class House : MonoBehaviour
         HideShopQuads();
         HideShopProps();
         HideLotParts();
+        HideBoardGlows();
         HideBlobs();
         HideLamps();
         ApplyNight();

@@ -46,7 +46,29 @@ public static class Prim
             rimMat.color = RimOrange;
             if (rimMat.HasProperty("_BaseColor")) rimMat.SetColor("_BaseColor", RimOrange);
         }
-        r.sharedMaterial = rimMat;
+        var xm = XRay();
+        if (xm != null) r.sharedMaterials = new Material[] { rimMat, xm };   // the ring again, dimmer, where something stands in front of it (see XRay.shader)
+        else r.sharedMaterial = rimMat;
+    }
+
+    // The x-ray look of the rings: the same orange, only drawn through things (the shader's depth test is reversed).
+    static Material xrayMat;
+    static Material XRay()
+    {
+        if (xrayMat != null) return xrayMat;
+        var shader = Shader.Find("PolyParcel/XRay");
+        if (shader == null || !shader.isSupported) return null;
+        xrayMat = new Material(shader);
+        TickXRay();
+        return xrayMat;
+    }
+
+    // Called every frame from Look: applies the DEV menu toggle and brightness.
+    public static void TickXRay()
+    {
+        if (xrayMat == null) return;
+        float a = GameConfig.HoopXRay ? Mathf.Clamp01(GameConfig.HoopXRayAlpha) : 0f;
+        xrayMat.SetColor("_BaseColor", new Color(RimOrange.r, RimOrange.g, RimOrange.b, a));
     }
 
     // A cylinder primitive comes with a capsule collider, which is the wrong shape for a flat disc: give it a collider that matches the disc.

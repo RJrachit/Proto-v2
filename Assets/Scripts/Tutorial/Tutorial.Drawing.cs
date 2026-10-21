@@ -6,6 +6,27 @@ public partial class Tutorial
 {
     // ---- drawing ----
 
+    GUIStyle noteTitleS, noteBodyS;
+
+    // A step card: a sticky note of torn paper with a strip of tape, a title in marker pen and the words in handwriting, in black.
+    // bodyH: the height of the words' area.
+    void DrawNote(Rect card, string title, string body, float bodyH)
+    {
+        UiTheme.Note(card);
+        if (noteTitleS == null)
+        {
+            var ink = new Color(0.10f, 0.09f, 0.08f);
+            noteTitleS = new GUIStyle(titleS) { fontSize = 32, fontStyle = FontStyle.Normal };
+            noteBodyS = new GUIStyle(subS) { fontSize = 27, fontStyle = FontStyle.Normal };
+            noteTitleS.normal.textColor = ink;
+            noteBodyS.normal.textColor = ink;
+            if (UiTheme.NoteTitleFont != null) noteTitleS.font = UiTheme.NoteTitleFont;
+            if (UiTheme.NoteBodyFont != null) noteBodyS.font = UiTheme.NoteBodyFont;
+        }
+        GUI.Label(new Rect(card.x + 16f, card.y + 20f, card.width - 32f, 46f), title, noteTitleS);
+        GUI.Label(new Rect(card.x + 28f, card.y + 68f, card.width - 56f, bodyH), body, noteBodyS);
+    }
+
     void EnsureStyles()
     {
         if (titleS != null) return;

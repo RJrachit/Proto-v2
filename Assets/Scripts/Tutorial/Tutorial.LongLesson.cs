@@ -314,6 +314,7 @@ public partial class Tutorial
         for (int i = 0; i < 400; i++)
         {
             vel += Physics.gravity * dt;
+            vel *= Mathf.Exp(-GameConfig.AirDrag * dt);
             Vector3 prev = pos;
             pos += vel * dt;
             float u0 = t.side * (prev.x - t.hx), u1 = t.side * (pos.x - t.hx);
@@ -353,6 +354,7 @@ public partial class Tutorial
         for (int i = 0; i < 500; i++)
         {
             vel += Physics.gravity * dt;
+            vel *= Mathf.Exp(-GameConfig.AirDrag * dt);
             Vector3 prev = pos;
             pos += vel * dt;
             float u0 = t.side * (prev.x - t.hx), u1 = t.side * (pos.x - t.hx);
@@ -576,15 +578,12 @@ public partial class Tutorial
 
         // the card goes on whichever side of the tower has more room
         float cw = Mathf.Min(w - 32f, portraitWidthCap(w));
-        float ch = 226f;
+        float ch = 252f;
         bool towerHigh = ok && all.center.y < h * 0.5f;
         float cy = towerHigh ? h - ch - 24f - insetB : Mathf.Max(insetT + 30f, h * 0.06f);
         Rect card = new Rect((w - cw) * 0.5f, cy, cw, ch);
-        UiTheme.Card(card);
-        UiTheme.Label(new Rect(card.x + 12f, card.y + 12f, card.width - 24f, 40f), "Clear every balcony", titleS, 1.5f);
-        GUI.Label(new Rect(card.x + 24f, card.y + 56f, card.width - 48f, 92f),
-            "Clear all balconies and the ground. Miss one and you lose a life.", subS);
-        if (GreenButton(new Rect(card.center.x - 110f, card.yMax - 66f, 220f, 54f), "Got it"))
+        DrawNote(card, "Clear every balcony", "Clear all balconies and the ground. Miss one and you lose a life.", 100f);
+        if (GreenButton(new Rect(card.center.x - 110f, card.yMax - 82f, 220f, 54f), "Got it"))
         {
             floorsIntro = false;
             longLesson = true;
@@ -666,15 +665,12 @@ public partial class Tutorial
         GUI.color = Color.white;
 
         float cw = Mathf.Min(w - 32f, portraitWidthCap(w));
-        float ch = 206f;
+        float ch = 222f;
         bool basketHigh = ok && hr.center.y < h * 0.5f;
         float cy = basketHigh ? h - ch - 24f - insetB : Mathf.Max(insetT + 30f, h * 0.06f);
         Rect card = new Rect((w - cw) * 0.5f, cy, cw, ch);
-        UiTheme.Card(card);
-        UiTheme.Label(new Rect(card.x + 12f, card.y + 12f, card.width - 24f, 40f), "Clear all balconies at once", titleS, 1.5f);
-        GUI.Label(new Rect(card.x + 24f, card.y + 56f, card.width - 48f, 72f),
-            "Score the basket to clear every balcony.", subS);
-        if (GreenButton(new Rect(card.center.x - 110f, card.yMax - 66f, 220f, 54f), "Got it"))
+        DrawNote(card, "Clear all balconies at once", "Score the basket to clear every balcony.", 70f);
+        if (GreenButton(new Rect(card.center.x - 110f, card.yMax - 82f, 220f, 54f), "Got it"))
         {
             hoopIntro = false;
             longLesson = true;
@@ -686,20 +682,10 @@ public partial class Tutorial
         }
     }
 
-    // The bright green button with bold black text.
+    // The green button (white text with a dark outline, like the menu buttons).
     bool GreenButton(Rect b, string text)
     {
-        UiTheme.ButtonShadow(b);
-        bool down = Input.GetMouseButton(0) && b.Contains(Event.current.mousePosition);
-        UiTheme.Pill(b, down ? new Color(0.13f, 0.66f, 0.22f) : new Color(0.20f, 0.88f, 0.32f));
-        UiTheme.Shine(b, true, down ? 0.55f : 1f);
-        if (gotItS == null)
-        {
-            gotItS = new GUIStyle(titleS) { fontSize = 30, fontStyle = FontStyle.Bold };
-            gotItS.normal.textColor = Color.black;
-        }
-        GUI.Label(b, text, gotItS);
-        return GUI.Button(b, GUIContent.none, GUIStyle.none);
+        return UiTheme.Tinted(b, text, 30, UiTheme.Tone.Green);
     }
 
     // After the long throw: the ground-floor prompt, and the praise.
@@ -712,10 +698,8 @@ public partial class Tutorial
         if (groundPhase && !transitioning)
         {
             float cw = Mathf.Min(w - 32f, 480f);
-            Rect card = new Rect((w - cw) * 0.5f, top, cw, 132f);
-            UiTheme.Card(card);
-            UiTheme.Label(new Rect(card.x + 12f, card.y + 12f, card.width - 24f, 40f), "Yard area", titleS, 1.5f);
-            GUI.Label(new Rect(card.x + 24f, card.y + 58f, card.width - 48f, 64f), "Hit any glowing spot.", subS);
+            Rect card = new Rect((w - cw) * 0.5f, top + 6f, cw, 150f);
+            DrawNote(card, "Yard area", "Hit any glowing spot.", 62f);
             cardRectScreen = new Rect(card.x * scale, card.y * scale, card.width * scale, card.height * scale);
         }
 

@@ -63,6 +63,7 @@ public partial class House
         float zr = e * (half - 1.5f);
         Part(new Vector3(cx, 1.6f, e * (half - 0.75f)), new Vector3(0.15f, 3.2f, 0.15f), new Color(0.45f, 0.45f, 0.48f), true);
         SoftBoard(Part(new Vector3(cx, 3.2f, e * (half - 0.9f)), new Vector3(1.6f, 1.1f, 0.1f), Color.white, true));
+        BoardMarks(new Vector3(cx, 3.2f, e * (half - 0.9f)), 1.1f, false);   // (the same edge and square as every other board)
         RingParts(cx, ringY, zr);
         if (zone != null && snap != null)
         {

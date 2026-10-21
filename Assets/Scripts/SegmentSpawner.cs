@@ -4,7 +4,6 @@ using UnityEngine;
 // Builds the endless road from primitives and recycles segments that fall behind the bike.
 // Each segment = grass + road + a row of lots on each side (their own lengths, so the two sides differ)
 // + a spot for a cow. Only some houses are customers; the rest are scenery. New mechanics are introduced gradually.
-// The route is generated from a seed, so the Daily Route gives everyone the same road.
 public partial class SegmentSpawner : MonoBehaviour
 {
     public float segmentLength = 30f;
@@ -64,6 +63,7 @@ public partial class SegmentSpawner : MonoBehaviour
         public bool park;                // a small park or car park instead of a house (scenery lots only)
         public bool parking;             // ...and it is a car park
         public bool court;               // ...or a basketball court (needs a long enough lot)
+        public House.Role role;          // what the lot became (customer or scenery)
         public int destruct;             // 0 none, 1 crate stack, 2 can pyramid (scenery lots only)
         public Color color;
         public System.Action<float, float> redo;   // sets the lot up again at a new centre and length (when the gaps are closed)
@@ -123,7 +123,8 @@ public partial class SegmentSpawner : MonoBehaviour
         prevBeachL = prevBeachR = false;
         lastLotZ = nextZ;
         sinceCustomer = 0f;
-        nextGap = 50f;            // first customer shows up a little way ahead
+        nextGap = GameConfig.EasyOpening ? segmentLength + GameConfig.EasyFirstCustomer : 50f;   // first customer shows up a little way ahead
+        openingFeatures = 0; openingND = 0; ndRun[0] = 0; ndRun[1] = 0;
         House.Customers.Clear();
         foreach (var s in segments) Place(s);
     }
@@ -171,6 +172,7 @@ public partial class SegmentSpawner : MonoBehaviour
         if (s.tailL != null) { s.tailL.Release(transform); s.tailL = null; }
         if (s.tailR != null) { s.tailR.Release(transform); s.tailR = null; }
         float startZ = nextZ;
+        placeStartZ = startZ;
         s.root.position = new Vector3(0f, 0f, startZ);
         nextZ += segmentLength;
         if (s.crossing != null) s.crossing.SetActive(!Tutorial.Active && RoadDetail.WantsCrossing(startZ));
@@ -312,6 +314,9 @@ public partial class SegmentSpawner : MonoBehaviour
                     lot.house.WantLayout2 = TowerTop;
                 }
             }
+            lot.role = role;
+            lot.house.NoShop = false;
+            if (!Tutorial.Active && InOpening(absZ)) ApplyOpening(lot, role);   // (the easy opening: SegmentSpawner.Opening.cs)
             lot.house.BeachEdge = lot.beach ? lot.edge : 0;
             // how close to either end of its beach this lot is (0 = deep in the middle, 1 = at an end): the vegetation grows thicker towards the ends
             bool leftSide = lot.house.side < 0;
@@ -328,10 +333,10 @@ public partial class SegmentSpawner : MonoBehaviour
                             walks, true, balcony, true, blocks, lot.beach, lot.color);
 
             {
-                var lt2 = lot; var r2 = role; bool wk2 = walks, bl2 = blocks, bc2 = balcony;
-                lot.redo = (zz, ll) => lt2.house.Setup(r2, zz, ll, lt2.door, lt2.mail, lt2.flip, lt2.yard, lt2.tree, lt2.porch, lt2.table, lt2.tableItems,
-                                                       lt2.park && r2 == House.Role.Scenery, lt2.parking, lt2.court, r2 == House.Role.Scenery ? lt2.destruct : 0,
-                                                       wk2, true, bc2, true, bl2, lt2.beach, lt2.color);
+                var lt2 = lot; bool wk2 = walks, bl2 = blocks, bc2 = balcony;
+                lot.redo = (zz, ll) => lt2.house.Setup(lt2.role, zz, ll, lt2.door, lt2.mail, lt2.flip, lt2.yard, lt2.tree, lt2.porch, lt2.table, lt2.tableItems,
+                                                       lt2.park && lt2.role == House.Role.Scenery, lt2.parking, lt2.court, lt2.role == House.Role.Scenery ? lt2.destruct : 0,
+                                                       wk2, true, bc2, true, bl2, lt2.beach, lt2.color);   // (reads the lot's role as it is now: the street rhythm may turn a lot into a customer)
             }
 
             if (tutorialLot)
@@ -344,6 +349,7 @@ public partial class SegmentSpawner : MonoBehaviour
         }
 
         if (GameConfig.CloseGaps && !Tutorial.Active) CloseGaps();
+        if (!Tutorial.Active) EnforceStreetRhythm();   // (never more than a few non-delivery lots in a row; see SegmentSpawner.Opening.cs)
 
         s.hazard.Setup(cow);
         PlaceHeart(s, startZ);

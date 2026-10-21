@@ -59,6 +59,7 @@ public class Paper : MonoBehaviour
     {
         if (rb == null || rb.isKinematic) return;
         if (boosting) StepBoost();
+        else if (!landed && GameConfig.AirDrag > 0f) rb.linearVelocity *= Mathf.Exp(-GameConfig.AirDrag * Time.fixedDeltaTime);   // air resistance (see GameConfig.AirDrag)
         lastVelocity = rb.linearVelocity;
     }
 
@@ -95,6 +96,7 @@ public class Paper : MonoBehaviour
         float dt = Time.fixedDeltaTime;
         float k = BoostK(boostTau);
         Vector3 v = rb.linearVelocity * (k / boostK) + Physics.gravity * (k * k * dt);
+        if (!landed && GameConfig.AirDrag > 0f) v *= Mathf.Exp(-GameConfig.AirDrag * k * dt);   // (time runs k times faster, so the drag rate does too: the path is the same)
         rb.linearVelocity = v;
         boostK = k;
         boostTau += k * dt;

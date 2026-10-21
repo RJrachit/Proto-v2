@@ -349,7 +349,9 @@ public partial class House
             float hz = floorHoopAt[f];
             float ringY = FloorBase(f) + 2.3f;
             float ringX = s * 7.88f;
+            skipBoardGlow = Tutorial.Active;   // (the tutorial's tower board has its own orange glow, below)
             var board = WallBoard(ringY, 0.4f, 1.05f, hz);
+            skipBoardGlow = false;
             if (Tutorial.Active)
             {
                 // the tutorial's board glows orange (see ShimmerTargets), with a brighter glow round its edges, and guides a paper that touches it into the ring

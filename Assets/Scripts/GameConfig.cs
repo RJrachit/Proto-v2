@@ -23,6 +23,7 @@ public static class GameConfig
     // (Higher = more arc, reaches the balcony; lower = flatter and faster.)
     public static float LaunchAngleLight = 32f;
     public static float LaunchAngleFull = 70f;
+    public static float TutorialPreviewShare = 0.7f;   // the same for the how-to-play lessons (0.1 - 1); a slider in the DEV menu
     public static float PreviewShare = 0.5f;   // how much of the aim arc is drawn (0.1 - 1); a slider in the DEV menu
     // Shapes the pull: 1 = linear, above 1 = fine control on short pulls, below 1 = short pulls already go far.
     public static float PowerCurve = 1f;
@@ -30,6 +31,9 @@ public static class GameConfig
     // ThrowBoost = speed-up at the start (1 = off), ThrowBoostShare = share of the flight (by time) that is sped up, easing back to normal at its end.
     public static float ThrowBoost = 1.5f;
     public static float ThrowBoostShare = 0.55f;
+    // Air resistance on a paper in flight (per second, 0 = none): the speed fades like exp(-AirDrag * t), so the arc drops quicker and falls short.
+    // It stops at the first floor touch. The aim line uses the same drag, so it still shows the real arc.
+    public static float AirDrag = 0f;
     // How much of the bike's forward speed the paper keeps (0-1).
     public static float ForwardInherit = 0.35f;
 
@@ -324,6 +328,15 @@ public static class GameConfig
     // ---- clutter controls (DEV menu, Clutter tab) ----
     // How many "feature" lots (park, car park, court, destructible pyramid, decorated yard) one side of a segment may have. 0 = no limit.
     public static int FeaturesPerSide = 1;
+    // ---- the easy opening and the calmer street (SegmentSpawner.Opening.cs; not used on the how-to-play road) ----
+    public static bool EasyOpening = true;        // the first seconds carry only customers' houses, and at most OpeningFeatures park / car park / court
+    public static float EasyOpeningSeconds = 15f; // how long it lasts (seconds of a normal run; the bike is slow at first, so about 45 m)
+    public static int OpeningFeatures = 1;        // parks, car parks and courts allowed inside the opening
+    public static float EasyFirstCustomer = 12f;  // the first customer comes about this many metres ahead of the bike's start (about 20 without the easy opening)
+    public static int MaxNonDeliveryRun = 2;      // never more non-delivery lots (shops, parks, car parks, courts) than this in a row on one side of the road (0 = no limit)
+    public static int OpeningNonDelivery = 2;     // in the easy opening: at most this many non-delivery lots altogether, and never two together
+    public static float NoTreesSeconds = 120f;    // no trees on the lawns for this long (0 = trees from the start)...
+    public static float TreeFadeSeconds = 30f;    // ...then they come back over this long
 
     // ---- look ----
     public static bool PitchedRoofs = true;       // gable roofs instead of flat slabs (applies to lots spawned after a change)
@@ -336,6 +349,11 @@ public static class GameConfig
     public static bool BlobShadows = true;        // soft contact shadows under houses, trees, bushes and the bike
     public static bool AmbientGradient = true;    // cool sky light, darker warm ground
     public static float VignetteStrength = 0.35f; // screen edges darken a little (0 = off)
+    public static float ParcelGlow = 0.4f;        // how strongly a thrown parcel glows white (0 = no halo; the parcel itself stays bright white)
+    public static bool ParcelSeeThrough = true;   // the parcel's light shows through walls, roofs and trees
+    public static float BoardGlowStrength = 0.28f; // the soft haze round every basketball backboard (0 = off)
+    public static bool HoopXRay = true;            // the hoop rings show through walls and other things, dimmer
+    public static float HoopXRayAlpha = 0.25f;      // how bright the ring looks through things (0 - 1)
     public static float LampLight = 1f;           // brightness of the real lamp and door lights at night
     public static float NightDarkness = 0.9f;     // how dark and foggy the night is (0 = bright, 1 = very dark)
     public static bool SunShadows = true;         // real soft sun shadows in the daytime phase only (fade out at dawn, dusk and rain)

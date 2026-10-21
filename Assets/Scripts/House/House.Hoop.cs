@@ -77,10 +77,24 @@ public partial class House
         Color frame = new Color(0.25f, 0.28f, 0.34f);
         var board = Part(new Vector3(wallX - s * 0.05f, ringY + by, hz), new Vector3(0.1f, bh, 1.6f), Color.white, true);   // backboard
         SoftBoard(board);
+        BoardGlow(new Vector3(wallX - s * 0.05f, ringY + by, hz), bh, true);
         Part(new Vector3(wallX - s * 0.11f, ringY + by - 0.12f, hz), new Vector3(0.04f, bh * 0.48f, 0.7f), new Color(0.55f, 0.65f, 0.80f), false);   // the square
         Part(new Vector3(wallX - s * 0.02f, ringY + by, hz), new Vector3(0.12f, bh + 0.07f, 1.68f), frame, false);                  // dark edge behind
         Part(new Vector3(s * 8.12f, ringY, hz), new Vector3(0.5f, 0.06f, 0.06f), frame, false);                                    // ring bracket
         return board;
+    }
+
+    // The marks every backboard carries: a dark edge all round and the light-blue shooting square. They show on both faces, so a board looks
+    // the same from whichever side you pass it. c = board centre, bh = board height (width 1.6), thinX = the board is thin along x (else along z).
+    // Used by the court boards and the standing hoops (the wall board draws its own marks, WallBoard).
+    static readonly Color BoardFrameCol = new Color(0.25f, 0.28f, 0.34f);
+    static readonly Color BoardSquareCol = new Color(0.55f, 0.65f, 0.80f);
+
+    void BoardMarks(Vector3 c, float bh, bool thinX)
+    {
+        BoardGlow(c, bh, thinX);
+        Part(c, thinX ? new Vector3(0.12f, bh + 0.07f, 1.68f) : new Vector3(1.68f, bh + 0.07f, 0.12f), BoardFrameCol, false);
+        Part(c + new Vector3(0f, -0.12f, 0f), thinX ? new Vector3(0.14f, bh * 0.48f, 0.7f) : new Vector3(0.7f, bh * 0.48f, 0.14f), BoardSquareCol, false);
     }
 
     // A ring (solid, dead rim) and its stringy net (not solid) centred on (x, y, z).

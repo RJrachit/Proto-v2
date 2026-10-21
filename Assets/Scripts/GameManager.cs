@@ -37,7 +37,6 @@ public class GameManager : MonoBehaviour
     // True only while the run is actually advancing (not in a menu, not paused, not over).
     public bool Playing { get { return State == RunState.Playing && !Paused; } }
     public bool GameOver { get { return State == RunState.GameOver; } }
-    public bool DailyMode { get; private set; }
 
     public int Score { get; private set; }
     public int Lives { get; private set; }
@@ -163,10 +162,9 @@ public class GameManager : MonoBehaviour
     // ---- run flow ----
 
     // The tutorial: the same road logic on a short scripted route (see Tutorial and SegmentSpawner). Nothing in it counts towards the stats.
-    public void StartTutorial(bool daily = false)
+    public void StartTutorial()
     {
-        DailyMode = false;
-        Tutorial.Begin(daily);
+        Tutorial.Begin();
         ResetStats();
         Paper.DestroyAll();
         GameTime.Reset();
@@ -178,16 +176,15 @@ public class GameManager : MonoBehaviour
         State = RunState.Playing;
     }
 
-    public void StartRun(bool daily)
+    public void StartRun()
     {
         Tutorial.Abort();
-        if (Tutorial.ShouldRun) { StartTutorial(daily); return; }   // the very first run is the tutorial
-        DailyMode = daily;
+        if (Tutorial.ShouldRun) { StartTutorial(); return; }   // the very first run is the tutorial
         ResetStats();
         Paper.DestroyAll();
         GameTime.Reset();
         BikeForward.Instance.ResetRun();
-        spawner.ResetRun(daily ? Progress.DailySeed : Random.Range(1, int.MaxValue));
+        spawner.ResetRun(Random.Range(1, int.MaxValue));
         State = RunState.Playing;
 
         int runs = PlayerPrefs.GetInt("Runs", 0);
@@ -197,7 +194,6 @@ public class GameManager : MonoBehaviour
 
     public void GoToMenu()
     {
-        DailyMode = false;
         ResetStats();
         Paper.DestroyAll();
         GameTime.Reset();
@@ -236,7 +232,7 @@ public class GameManager : MonoBehaviour
             HighScore = Score;
             PlayerPrefs.SetInt("PaperRunnerHigh", HighScore);
         }
-        if (DailyMode) RunCoins += Progress.RecordDaily(Score);   // (the run's coins were counted as they were earned)
+        // (the run's coins were counted as they were earned)
         Progress.AddCoins(RunCoins);
         PlayerPrefs.Save();
         GameTime.Reset();

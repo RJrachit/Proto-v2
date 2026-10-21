@@ -334,6 +334,7 @@ public class PaperThrower : MonoBehaviour
         for (int i = 0; i < 170; i++)
         {
             vel += Physics.gravity * dt;
+            vel *= Mathf.Exp(-GameConfig.AirDrag * dt);
             p += vel * dt;
             t += dt;
             if (p.y < 0f) break;
@@ -384,12 +385,13 @@ public class PaperThrower : MonoBehaviour
             for (int k = 1; k <= 170; k++)
             {
                 w += Physics.gravity * dt;
+                w *= Mathf.Exp(-GameConfig.AirDrag * dt);
                 q += w * dt;
                 total = k;
                 if (q.y < 0.05f) break;
             }
         }
-        int limit = Mathf.Max(2, Mathf.CeilToInt(total * Mathf.Clamp01(Tutorial.Active ? 1f : GameConfig.PreviewShare)));   // (the tutorial always shows the whole arc)
+        int limit = Mathf.Max(2, Mathf.CeilToInt(total * Mathf.Clamp01(Tutorial.Active ? GameConfig.TutorialPreviewShare : GameConfig.PreviewShare)));   // (the how-to-play lessons have their own share)
 
         Vector3 p = ThrowOrigin;
         int n = 0;
@@ -398,6 +400,7 @@ public class PaperThrower : MonoBehaviour
         {
             Vector3 prev = p;
             v += Physics.gravity * dt;
+            v *= Mathf.Exp(-GameConfig.AirDrag * dt);
             p += v * dt;
 
             // The line stops at the first thing the paper would touch (a wall, a backboard, the ground).
@@ -473,6 +476,7 @@ public class PaperThrower : MonoBehaviour
         var rb = go.AddComponent<Rigidbody>();
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
         var paper = go.AddComponent<Paper>();
+        go.AddComponent<ParcelGlow>();   // the parcel glows white, and the light shows through obstacles
         if (GameConfig.ThrowBoost > 1.01f) paper.BeginBoost(v, FlightTime(v), GameConfig.ThrowBoost, GameConfig.ThrowBoostShare);   // the first part of the arc is flown faster
         else rb.AddForce(v, ForceMode.VelocityChange);
         rb.AddTorque(Random.insideUnitSphere * 6f, ForceMode.VelocityChange);
@@ -480,7 +484,7 @@ public class PaperThrower : MonoBehaviour
         // Console check: how far this arc should reach on plain physics (the same as the aim line), and the time state it was thrown in
         {
             Vector3 q = ThrowOrigin, w = v;
-            for (int k = 0; k < 200 && q.y > 0.05f; k++) { w += Physics.gravity * 0.02f; q += w * 0.02f; }
+            for (int k = 0; k < 200 && q.y > 0.05f; k++) { w += Physics.gravity * 0.02f; w *= Mathf.Exp(-GameConfig.AirDrag * 0.02f); q += w * 0.02f; }
             Vector3 flat = q - ThrowOrigin; flat.y = 0f;
             paper.ThrowFrom = ThrowOrigin;
             paper.ThrowPredicted = flat.magnitude;

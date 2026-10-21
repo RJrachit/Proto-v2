@@ -405,12 +405,10 @@ public partial class Tutorial
 
         // the words, at the top
         float cw = Mathf.Min(w - 32f, 480f);
-        Rect card = new Rect((w - cw) * 0.5f, Mathf.Max(insetT + 30f, h * 0.10f), cw, 128f);
-        UiTheme.Card(card);
-        UiTheme.Label(new Rect(card.x + 12f, card.y + 12f, card.width - 24f, 40f), hoopMode ? "Basket shot" : (longLesson ? "Long shot" : "Near shot"), titleS, 1.5f);
-        GUI.Label(new Rect(card.x + 24f, card.y + 56f, card.width - 48f, 56f),
-                  hoopMode ? "Pull to the green circle. Release into the basket." :
-                  longLesson ? "Pull farther to reach the top balcony." : "Pull back to the green circle. Release.", subS);
+        Rect card = new Rect((w - cw) * 0.5f, Mathf.Max(insetT + 36f, h * 0.10f), cw, 158f);
+        DrawNote(card, hoopMode ? "Basket shot" : (longLesson ? "Long shot" : "Near shot"),
+                 hoopMode ? "Pull to the green circle. Release into the basket." :
+                 longLesson ? "Pull farther to reach the top balcony." : "Pull back to the green circle. Release.", 68f);
     }
 
     // A paper came to rest without scoring (called by Paper): during the near-shot lesson that starts it again.

@@ -20,6 +20,8 @@ public class AddShadersToBuild : IPreprocessBuildWithReport
         "Universal Render Pipeline/Particles/Unlit",
         "Sprites/Default",
         "Unlit/Color",
+        "PolyParcel/XRay",
+        "PolyParcel/GlowThrough",
         "Standard",
     };
 

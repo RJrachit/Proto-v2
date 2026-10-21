@@ -47,7 +47,7 @@ public class DevMenu : MonoBehaviour
         {
             pendingRestart = false;
             var gm = GameManager.Instance;
-            if (gm != null) { open = false; gm.StartRun(false); }
+            if (gm != null) { open = false; gm.StartRun(); }
         }
         if (pendingClose) { pendingClose = false; open = false; }
     }
@@ -189,9 +189,11 @@ public class DevMenu : MonoBehaviour
             thrower.slingshotStyle = GameConfig.SlingshotStyle = sling;
             try { PlayerPrefs.SetInt("ctl_sling", sling ? 1 : 0); PlayerPrefs.Save(); } catch (System.Exception) { }   // remembered between runs
         }
+        GameConfig.TutorialPreviewShare = Slider("Aim guide shown in how to play", GameConfig.TutorialPreviewShare, 0.1f, 1f, "0.00");
         GameConfig.PreviewShare = Slider("Aim guide shown", GameConfig.PreviewShare, 0.1f, 1f, "0.00");   // share of the arc drawn: 0.60 = 60%
         GameConfig.ThrowBoost = Slider("Throw speed-up at start (1 = off)", GameConfig.ThrowBoost, 1f, 2.5f, "0.00");   // same path, flown faster at first
         GameConfig.ThrowBoostShare = Slider("Speed-up share of the flight", GameConfig.ThrowBoostShare, 0.2f, 0.9f, "0.00");
+        GameConfig.AirDrag = Slider("Air resistance (0 = none, higher = arc drops quicker)", GameConfig.AirDrag, 0f, 1.5f, "0.00");
     }
 
     void BikeTab()
@@ -295,6 +297,14 @@ public class DevMenu : MonoBehaviour
         GameConfig.CustomerGapEnd = Slider("Customer gap, end (m)", GameConfig.CustomerGapEnd, 4f, 60f, "0");
         if (sp != null) { sp.customerGapStart = GameConfig.CustomerGapStart; sp.customerGapEnd = GameConfig.CustomerGapEnd; }
         GameConfig.FeaturesPerSide = Mathf.RoundToInt(Slider("Features / side (0 = no limit)", GameConfig.FeaturesPerSide, 0f, 4f, "0"));
+        GameConfig.MaxNonDeliveryRun = Mathf.RoundToInt(Slider("Non-delivery lots in a row (0 = no limit)", GameConfig.MaxNonDeliveryRun, 0f, 6f, "0"));
+        GameConfig.OpeningNonDelivery = Mathf.RoundToInt(Slider("Non-delivery lots in the opening", GameConfig.OpeningNonDelivery, 0f, 6f, "0"));
+        GameConfig.EasyOpening = Toggle("Easy opening (only customers' houses at first)", GameConfig.EasyOpening);
+        GameConfig.EasyOpeningSeconds = Slider("Easy opening lasts (seconds)", GameConfig.EasyOpeningSeconds, 0f, 60f, "0");
+        GameConfig.OpeningFeatures = Mathf.RoundToInt(Slider("Parks / courts allowed in the opening", GameConfig.OpeningFeatures, 0f, 3f, "0"));
+        GameConfig.EasyFirstCustomer = Slider("First customer this far ahead (metres)", GameConfig.EasyFirstCustomer, 4f, 40f, "0");
+        GameConfig.NoTreesSeconds = Slider("No lawn trees for (seconds, 0 = off)", GameConfig.NoTreesSeconds, 0f, 300f, "0");
+        GameConfig.TreeFadeSeconds = Slider("Lawn trees fade in over (seconds)", GameConfig.TreeFadeSeconds, 0f, 120f, "0");
 
         GUILayout.Label("How the odds rise with distance", lab);
         GameConfig.PlainStart = Slider("Plain start (m)", GameConfig.PlainStart, 0f, 200f, "0");
@@ -318,6 +328,11 @@ public class DevMenu : MonoBehaviour
         GameConfig.BlobShadows = Toggle("Soft blob shadows", GameConfig.BlobShadows);
         GameConfig.AmbientGradient = Toggle("Ambient light gradient", GameConfig.AmbientGradient);
         GameConfig.VignetteStrength = Slider("Vignette", GameConfig.VignetteStrength, 0f, 0.8f, "0.00");
+        GameConfig.ParcelGlow = Slider("Parcel glow (0 = off)", GameConfig.ParcelGlow, 0f, 1f, "0.00");
+        GameConfig.ParcelSeeThrough = Toggle("Parcel light shows through obstacles", GameConfig.ParcelSeeThrough);
+        GameConfig.BoardGlowStrength = Slider("Backboard glow (0 = off)", GameConfig.BoardGlowStrength, 0f, 1f, "0.00");
+        GameConfig.HoopXRay = Toggle("Hoop rings show through obstacles", GameConfig.HoopXRay);
+        GameConfig.HoopXRayAlpha = Slider("Ring brightness through obstacles", GameConfig.HoopXRayAlpha, 0f, 1f, "0.00");
         GameConfig.SunShadows = Toggle("Sun shadows (daytime)", GameConfig.SunShadows);
         GUILayout.Label("Light, vignette and sun shadows apply at once. Roofs, chimneys and blob shadows apply to lots spawned after the change: Restart run rebuilds the road. If sun shadows show speckles, switch them off.", note);
     }

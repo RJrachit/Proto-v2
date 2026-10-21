@@ -18,6 +18,23 @@ public static class UiTheme
     static Texture2D tPrimary, tPrimaryHover, tPrimaryDown, tSecondary, tSecondaryHover, tSecondaryDown, tCard, tPill, tBar, tShadow, tScrim, tThumb, tTrack;
     static GUIStyle sPrimary, sSecondary, sTab, sCard, sPill, sBar, sShadow, sSlider, sThumb, sPrimaryText, sSecondaryText, sSoftShadow;
     static Texture2D tSoftShadow;
+
+    // The button colours: yellow (the main action), orange, green (the three colours of the style sheet) and the old dark blue.
+    public enum Tone { Yellow, Orange, Green, Slate }
+    static readonly GUIStyle[] toneBody = new GUIStyle[4];
+    static readonly GUIStyle[] toneText = new GUIStyle[4];
+    static readonly Color[] toneOutline = new Color[4];   // the dark colour around a button's text
+
+    // The font of the button text: Lilita One (Assets/Resources/Fonts/LilitaOne-Regular.ttf). Null if the file is missing (the default font is used then).
+    static Font buttonFont; static bool fontTried;
+    public static Font ButtonFont
+    {
+        get
+        {
+            if (!fontTried) { fontTried = true; try { buttonFont = Resources.Load<Font>("Fonts/LilitaOne-Regular"); } catch (System.Exception) { } }
+            return buttonFont;
+        }
+    }
     const int SoftB = 12;   // how far a button's soft shadow spreads
 
     public static GUIStyle PrimaryStyle { get { return sPrimary; } }
@@ -107,6 +124,57 @@ public static class UiTheme
         return s;
     }
 
+    // A button style in one colour: a light top fading to a deeper bottom; lighter when hovered, deeper when pressed.
+    static GUIStyle ToneButton(Color top, Color bottom, Color outline, Color text)
+    {
+        Texture2D n, hov, down;
+        return ToneButton(top, bottom, outline, text, out n, out hov, out down);
+    }
+
+    // A cartoon button: a flat colour (a little lighter at the top) inside a thick dark outline; lighter when hovered, deeper when pressed.
+    static GUIStyle ToneButton(Color top, Color bottom, Color outline, Color text, out Texture2D n, out Texture2D hov, out Texture2D down)
+    {
+        Color lighten = new Color(0.07f, 0.07f, 0.07f, 0f);
+        n = Cartoon(top, bottom, outline);
+        hov = Cartoon(top + lighten, bottom + lighten, outline);
+        down = Cartoon(Darken(top, 0.9f), Darken(bottom, 0.9f), Darken(outline, 0.9f));
+        return Button(n, hov, down, text);
+    }
+
+    static Color Darken(Color c, float k) { return new Color(c.r * k, c.g * k, c.b * k, 1f); }
+
+    // The 9-slice picture of a cartoon button: a vertical colour fade inside a crisp outline.
+    static Texture2D Cartoon(Color top, Color bottom, Color outline)
+    {
+        const float ow = 3.5f;   // outline thickness in texture pixels
+        int size = ButtonR * 2 + 6;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+        tex.hideFlags = HideFlags.HideAndDontSave;
+        var px = new Color[size * size];
+        float half = size * 0.5f;
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float qx = Mathf.Abs(x + 0.5f - half) - (half - ButtonR);
+                float qy = Mathf.Abs(y + 0.5f - half) - (half - ButtonR);
+                float ox = Mathf.Max(qx, 0f), oy = Mathf.Max(qy, 0f);
+                float sd = Mathf.Sqrt(ox * ox + oy * oy) + Mathf.Min(Mathf.Max(qx, qy), 0f) - ButtonR;
+                float a = Mathf.Clamp01(0.5f - sd);
+                float inset = -sd;
+                Color body = Color.Lerp(bottom, top, y / (size - 1f));
+                Color c = Color.Lerp(body, outline, Mathf.Clamp01(ow - inset + 0.5f));
+                c.a = a;
+                px[y * size + x] = c;
+            }
+        }
+        tex.SetPixels(px);
+        tex.Apply();
+        return tex;
+    }
+
     static GUIStyle TextOnly(GUIStyle from)
     {
         var s = new GUIStyle(from);
@@ -161,8 +229,7 @@ public static class UiTheme
         tex.hideFlags = HideFlags.HideAndDontSave;
         var px = new Color[w * h];
         float r = Mathf.Min(ButtonR, h * 0.5f);
-        float glossK = primary ? 1f : 0.72f;     // (the dark blue buttons need a gentler shine)
-        float shadeK = primary ? 0.30f : 0.34f;
+        float glossK = primary ? 1f : 0.8f;
         for (int y = 0; y < h; y++)
         {
             float v = 1f - (y + 0.5f) / h;       // 0 at the top edge, 1 at the bottom edge
@@ -175,26 +242,18 @@ public static class UiTheme
                 float mask = Mathf.Clamp01(0.5f - sd);
                 if (mask <= 0f) { px[y * w + x] = new Color(0f, 0f, 0f, 0f); continue; }
                 float inset = -sd;               // pixels in from the edge
+                float inside = Mathf.Clamp01((inset - 3.2f) / 1.2f);   // (the dark outline itself is left alone)
 
-                // the gloss: a cap over the top, kept a few pixels in from the edge, with a curved lower edge and a fade towards it
-                float xn = 2f * (x + 0.5f) / w - 1f;
-                float vb = 0.52f - 0.10f * xn * xn;
-                float ga = 0f;
-                if (v < vb)
-                {
-                    float t = v / vb;
-                    float g = Mathf.Lerp(0.62f, 0.12f, Mathf.Pow(t, 0.85f));
-                    float edgeAA = Mathf.Clamp01((vb - v) * h / 1.5f);
-                    ga = g * glossK * edgeAA * Mathf.Clamp01((inset - 2.5f) / 1.5f);
-                }
-                // the rim: a thin bright line along the top edge
-                float ra = 0.55f * glossK * Mathf.Clamp01(1f - (inset - 0.5f) / 2f) * Mathf.Clamp01(1f - v / 0.5f);
-                float wa = 1f - (1f - ga) * (1f - ra);
-                // the shade: darker towards the bottom, smoothly (no hard line)
-                float sa = shadeK * Mathf.Pow(Mathf.Clamp01((v - 0.52f) / 0.48f), 1.6f);
+                // the inner highlight: a light line just inside the outline, along the top and the upper sides
+                float ring = Mathf.Clamp01((inset - 3.2f) / 1.0f) * Mathf.Clamp01(1f - (inset - 5.2f) / 1.2f);
+                float ra = ring * Mathf.Lerp(0.65f, 0f, Mathf.Clamp01(v / 0.75f)) * glossK;
+                // a soft light over the top of the face
+                float ga = 0.20f * glossK * Mathf.Pow(Mathf.Clamp01(1f - v / 0.55f), 1.2f) * inside;
+                float wa = 1f - (1f - ra) * (1f - ga);
+                // a smooth shade towards the bottom of the face (no hard line)
+                float sa = 0.16f * Mathf.Pow(Mathf.Clamp01((v - 0.55f) / 0.45f), 1.5f) * inside;
 
-                Color c = wa >= sa ? new Color(1f, 1f, 1f, wa * mask) : new Color(0f, 0f, 0f, sa * mask);
-                px[y * w + x] = c;
+                px[y * w + x] = wa >= sa ? new Color(1f, 1f, 1f, wa * mask) : new Color(0f, 0f, 0f, sa * mask);
             }
         }
         tex.SetPixels(px);
@@ -229,21 +288,143 @@ public static class UiTheme
         GUI.Box(new Rect(r.x - SoftB, r.y - SoftB + 9f, r.width + 2f * SoftB, r.height + 2f * SoftB), GUIContent.none, sSoftShadow);
     }
 
+    // ---- the sticky note: a torn piece of squared paper with a strip of yellow tape (the tutorial's step cards) ----
+
+    static Font noteTitleFont, noteBodyFont; static bool noteFontsTried;
+    static void LoadNoteFonts()
+    {
+        if (noteFontsTried) return;
+        noteFontsTried = true;
+        try
+        {
+            noteTitleFont = Resources.Load<Font>("Fonts/PermanentMarker-Regular");   // Assets/Resources/Fonts
+            noteBodyFont = Resources.Load<Font>("Fonts/PatrickHand-Regular");
+        }
+        catch (System.Exception) { }
+    }
+    public static Font NoteTitleFont { get { LoadNoteFonts(); return noteTitleFont; } }   // (null if the file is missing: the default font is used then)
+    public static Font NoteBodyFont { get { LoadNoteFonts(); return noteBodyFont; } }
+
+    const int NoteM = 22, NoteTop = 26;   // room around the paper for the shadow, and above it for the tape
+    static readonly Dictionary<long, Texture2D> noteCache = new Dictionary<long, Texture2D>();
+
+    static float NoiseAt(int n)
+    {
+        unchecked
+        {
+            n = (n << 13) ^ n;
+            return 1f - ((n * (n * n * 15731 + 789221) + 1376312589) & 0x7fffffff) / 1073741824f;   // -1..1
+        }
+    }
+
+    // Smooth value noise along the torn edge.
+    static float Smooth1D(float x, int seed)
+    {
+        int i = Mathf.FloorToInt(x);
+        float f = x - i;
+        f = f * f * (3f - 2f * f);
+        return Mathf.Lerp(NoiseAt(i * 31 + seed), NoiseAt((i + 1) * 31 + seed), f);
+    }
+
+    // The height (in pixels, up or down) of the torn bottom edge at column x.
+    static float TearAt(int x)
+    {
+        return 0.55f * Smooth1D(x / 16f, 7) + 0.30f * Smooth1D(x / 5f, 19) + 0.15f * NoiseAt(x * 7 + 3);
+    }
+
+    static Texture2D NoteTex(int qw, int qh)
+    {
+        long key = (long)qw * 4096L + qh;
+        Texture2D tex;
+        if (noteCache.TryGetValue(key, out tex) && tex != null) return tex;
+
+        int tw = qw + NoteM * 2, th = qh + NoteM + NoteTop;
+        tex = new Texture2D(tw, th, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+        tex.hideFlags = HideFlags.HideAndDontSave;
+        var px = new Color[tw * th];
+        float baseBottom = NoteTop + qh - 9f;
+        float cx = NoteM + qw * 0.5f;
+        var paperA = new Color(0.985f, 0.955f, 0.895f);
+        var paperB = new Color(0.945f, 0.905f, 0.835f);
+        for (int ty = 0; ty < th; ty++)
+        {
+            int y = th - 1 - ty;                  // from the top of the picture
+            for (int x = 0; x < tw; x++)
+            {
+                float yb = baseBottom + TearAt(x) * 7f;
+                // the paper
+                float cov = Mathf.Clamp01(x + 0.5f - NoteM) * Mathf.Clamp01(NoteM + qw - x - 0.5f) * Mathf.Clamp01(y + 0.5f - NoteTop) * Mathf.Clamp01(yb - y);
+                // the shadow, a soft shape a little right of and below the paper
+                float yb2 = baseBottom + TearAt(x - 4) * 7f + 7f;
+                float dx = Mathf.Max(Mathf.Max(NoteM + 4 - x, x - (NoteM + qw + 4)), 0f);
+                float dy = Mathf.Max(Mathf.Max(NoteTop + 7 - y, y - yb2), 0f);
+                float dsh = Mathf.Sqrt(dx * dx + dy * dy);
+                float sha = 0.40f * Mathf.Pow(Mathf.Clamp01(1f - dsh / 15f), 2f);
+                Color c = new Color(0f, 0f, 0f, sha);
+                if (cov > 0f)
+                {
+                    float t = Mathf.Clamp01((y - NoteTop) / (float)qh);
+                    Color p = Color.Lerp(paperA, paperB, t * 0.8f);
+                    int gx = x - NoteM, gy = y - NoteTop;
+                    if (gx % 14 == 0 || gy % 14 == 0) p = Color.Lerp(p, new Color(0.62f, 0.68f, 0.78f), 0.20f);   // the squares
+                    float g = NoiseAt(x * 131 + y * 17) * 0.012f;
+                    p = new Color(p.r + g, p.g + g, p.b + g);
+                    float nearTear = yb - y;
+                    if (nearTear < 3.2f) p = Color.Lerp(p, new Color(1f, 0.995f, 0.985f), 0.8f * (1f - nearTear / 3.2f));   // the pale fibres of a torn edge
+                    c = Color.Lerp(new Color(0f, 0f, 0f, sha), new Color(p.r, p.g, p.b, 1f), cov);
+                    c.a = cov + (1f - cov) * sha;
+                }
+                // the tape: a yellow strip across the top, slightly slanted, with ragged ends
+                float xs = x - (y - NoteTop) * 0.10f;
+                float half = 36f + NoiseAt(y * 5 + 1) * 1.5f;
+                float tcov = Mathf.Clamp01(half - Mathf.Abs(xs - cx)) * Mathf.Clamp01(y + 0.5f - (NoteTop - 18)) * Mathf.Clamp01(NoteTop + 11 - y - 0.5f);
+                if (tcov > 0f)
+                {
+                    float tt = (y - (NoteTop - 18)) / 29f;
+                    Color tape = Color.Lerp(new Color(1f, 0.88f, 0.28f), new Color(0.97f, 0.76f, 0.05f), tt);
+                    float ta = 0.92f * tcov;
+                    Color over = new Color(c.r, c.g, c.b);
+                    Color mix = Color.Lerp(over, tape, ta);
+                    c = new Color(mix.r, mix.g, mix.b, Mathf.Clamp01(c.a + (1f - c.a) * ta));
+                }
+                px[ty * tw + x] = c;
+            }
+        }
+        tex.SetPixels(px);
+        tex.Apply();
+        noteCache[key] = tex;
+        return tex;
+    }
+
+    // Draws the note so that its paper fills r (the tape sticks up above it and the shadow spreads around it). Not clickable: it only draws.
+    public static void Note(Rect r)
+    {
+        int qw = Mathf.Clamp(Mathf.RoundToInt(r.width / 8f) * 8, 64, 1024);
+        int qh = Mathf.Clamp(Mathf.RoundToInt(r.height / 8f) * 8, 64, 512);
+        float sx = r.width / qw, sy = r.height / qh;
+        GUI.DrawTexture(new Rect(r.x - NoteM * sx, r.y - NoteTop * sy, (qw + NoteM * 2) * sx, (qh + NoteM + NoteTop) * sy), NoteTex(qw, qh), ScaleMode.StretchToFill, true);
+    }
+
     public static void Ensure()
     {
         if (sPrimary != null && tPrimary != null) return;
 
         Color clear = new Color(0f, 0f, 0f, 0f);
-        var goldTop = new Color(1.00f, 0.90f, 0.45f); var goldBot = new Color(1.00f, 0.76f, 0.20f); var goldLip = new Color(0.78f, 0.52f, 0.10f);
-        tPrimary = Round(ButtonR, goldTop, goldBot, clear, 0f, 0, goldLip);   // (no hard band along the bottom: the shading is drawn by Shine)
-        tPrimaryHover = Round(ButtonR, new Color(1.00f, 0.94f, 0.60f), new Color(1.00f, 0.82f, 0.30f), clear, 0f, 0, goldLip);
-        tPrimaryDown = Round(ButtonR, goldBot, new Color(0.92f, 0.68f, 0.16f), clear, 0f, 0, goldLip);
+        var goldLip = new Color(0.78f, 0.52f, 0.10f);
+        var ink = new Color(0.14f, 0.12f, 0.08f);
 
-        var slTop = new Color(0.34f, 0.41f, 0.57f); var slBot = new Color(0.24f, 0.30f, 0.44f); var slLip = new Color(0.13f, 0.17f, 0.28f);
-        var slEdge = new Color(0.52f, 0.60f, 0.78f);
-        tSecondary = Round(ButtonR, slTop, slBot, slEdge, 2f, 0, slLip);
-        tSecondaryHover = Round(ButtonR, new Color(0.42f, 0.50f, 0.68f), new Color(0.30f, 0.37f, 0.53f), slEdge, 2f, 0, slLip);
-        tSecondaryDown = Round(ButtonR, slBot, new Color(0.20f, 0.25f, 0.38f), slEdge, 2f, 0, slLip);
+        // the button colours: yellow #FFD400, orange #FE7E0F, green #87C830 (each with a darker outline of its own), and the old dark blue
+        var yellowOut = new Color(0.62f, 0.40f, 0.02f); var orangeOut = new Color(0.62f, 0.22f, 0.00f);
+        var greenOut = new Color(0.22f, 0.45f, 0.05f); var slateOut = new Color(0.10f, 0.13f, 0.24f);
+        toneOutline[(int)Tone.Yellow] = new Color(0.46f, 0.29f, 0.00f);
+        toneOutline[(int)Tone.Orange] = new Color(0.50f, 0.17f, 0.00f);
+        toneOutline[(int)Tone.Green] = new Color(0.15f, 0.34f, 0.03f);
+        toneOutline[(int)Tone.Slate] = new Color(0.06f, 0.09f, 0.18f);
+
+        sPrimary = ToneButton(new Color(1.00f, 0.89f, 0.22f), new Color(1.00f, 0.78f, 0.00f), yellowOut, ink, out tPrimary, out tPrimaryHover, out tPrimaryDown);
+        sSecondary = ToneButton(new Color(0.40f, 0.48f, 0.66f), new Color(0.30f, 0.37f, 0.54f), slateOut, Cream, out tSecondary, out tSecondaryHover, out tSecondaryDown);
 
         tCard = Round(CardR, new Color(0.14f, 0.19f, 0.31f, 0.94f), new Color(0.07f, 0.10f, 0.19f, 0.94f), new Color(0.40f, 0.48f, 0.68f, 0.95f), 2f, 0, clear);
         tPill = Round(PillR, Color.white, Color.white, clear, 0f, 0, clear);
@@ -252,9 +433,6 @@ public static class UiTheme
         tScrim = Scrim();
         tThumb = Round(17, new Color(1.00f, 0.90f, 0.45f), new Color(1.00f, 0.76f, 0.20f), clear, 0f, 4, goldLip);
         tTrack = Round(BarR, new Color(0.04f, 0.06f, 0.12f, 0.9f), new Color(0.12f, 0.16f, 0.26f, 0.9f), clear, 0f, 0, clear);
-
-        sPrimary = Button(tPrimary, tPrimaryHover, tPrimaryDown, new Color(0.14f, 0.12f, 0.08f));
-        sSecondary = Button(tSecondary, tSecondaryHover, tSecondaryDown, Cream);
 
         // tabs: the chosen one is gold
         sTab = Button(tSecondary, tSecondaryHover, tSecondaryDown, Cream);
@@ -268,6 +446,16 @@ public static class UiTheme
         // the text of a button is drawn on top of its shine, with these (the same look, no background)
         sPrimaryText = TextOnly(sPrimary);
         sSecondaryText = TextOnly(sSecondary);
+
+        toneBody[(int)Tone.Yellow] = sPrimary;
+        toneBody[(int)Tone.Slate] = sSecondary;
+        toneBody[(int)Tone.Orange] = ToneButton(new Color(1.00f, 0.60f, 0.20f), new Color(0.99f, 0.46f, 0.03f), orangeOut, ink);
+        toneBody[(int)Tone.Green] = ToneButton(new Color(0.60f, 0.85f, 0.27f), new Color(0.49f, 0.75f, 0.14f), greenOut, ink);
+        for (int i = 0; i < toneBody.Length; i++)
+        {
+            toneText[i] = TextOnly(toneBody[i]);
+            if (ButtonFont != null) toneText[i].font = ButtonFont;   // the chunky button font (Assets/Resources/Fonts)
+        }
 
         tSoftShadow = SoftShadowTex();
         sSoftShadow = Box(tSoftShadow, ButtonR + SoftB);
@@ -299,9 +487,11 @@ public static class UiTheme
     }
 
     // A button: its soft shadow, the body (which reacts to hover and press), the shine on top, and the text above the shine.
-    static bool Face(Rect r, string text, int fontSize, GUIStyle body, GUIStyle textStyle, bool primary)
+    static bool Face(Rect r, string text, int fontSize, Tone tone)
     {
         Ensure();
+        GUIStyle body = toneBody[(int)tone], textStyle = toneText[(int)tone];
+        bool primary = tone != Tone.Slate;
         ButtonShadow(r);
         bool hit = GUI.Button(r, GUIContent.none, body);
         bool down = Event.current != null && Input.GetMouseButton(0) && r.Contains(Event.current.mousePosition);
@@ -310,7 +500,22 @@ public static class UiTheme
         {
             int old = textStyle.fontSize;
             textStyle.fontSize = fontSize;
-            GUI.Label(r, text, textStyle);
+            Rect tr = r;
+            if (down) tr.y += 2f;                               // (the label sinks a little while pressed)
+            float o = Mathf.Max(2f, fontSize * 0.075f);         // outline thickness
+            Color dark = toneOutline[(int)tone];
+            Color keep = textStyle.normal.textColor;
+            textStyle.normal.textColor = new Color(dark.r, dark.g, dark.b, 0.75f);
+            GUI.Label(new Rect(tr.x, tr.y + o + 2.5f, tr.width, tr.height), text, textStyle);   // the drop shadow
+            textStyle.normal.textColor = dark;
+            for (int i = 0; i < 8; i++)
+            {
+                float ang = i * Mathf.PI * 0.25f;
+                GUI.Label(new Rect(tr.x + Mathf.Cos(ang) * o, tr.y + Mathf.Sin(ang) * o, tr.width, tr.height), text, textStyle);   // the outline
+            }
+            textStyle.normal.textColor = Color.white;
+            GUI.Label(tr, text, textStyle);
+            textStyle.normal.textColor = keep;
             textStyle.fontSize = old;
         }
         return hit;
@@ -318,12 +523,18 @@ public static class UiTheme
 
     public static bool Primary(Rect r, string text, int fontSize = 34)
     {
-        return Face(r, text, fontSize, sPrimary, sPrimaryText, true);
+        return Face(r, text, fontSize, Tone.Yellow);
+    }
+
+    // A button in one of the style-sheet colours (yellow, orange, green).
+    public static bool Tinted(Rect r, string text, int fontSize, Tone tone)
+    {
+        return Face(r, text, fontSize, tone);
     }
 
     public static bool Secondary(Rect r, string text, int fontSize = 28)
     {
-        return Face(r, text, fontSize, sSecondary, sSecondaryText, false);
+        return Face(r, text, fontSize, Tone.Slate);
     }
 
     // A rounded panel with a shadow.

@@ -27,7 +27,7 @@ public partial class Tutorial : MonoBehaviour
     static bool IsHouseStep(int s) { return s >= FirstHouseStep && s <= LastHouseStep; }
 
     static Tutorial inst;
-    static bool firstTime, pendingDaily;
+    static bool firstTime;
 
     // ---- the script ----
 
@@ -93,10 +93,9 @@ public partial class Tutorial : MonoBehaviour
 
     // ---- entry points (called by GameManager, PaperThrower, GameUI) ----
 
-    public static void Begin(bool daily)
+    public static void Begin()
     {
         firstTime = !Done;
-        pendingDaily = daily;
         Active = true;
         if (inst != null) inst.ResetState();
     }

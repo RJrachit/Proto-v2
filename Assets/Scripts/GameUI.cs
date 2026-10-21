@@ -5,9 +5,6 @@ using UnityEngine;
 // The menus use the shared look in UiTheme (rounded cards, chunky buttons, outlined titles over a darkening gradient).
 public partial class GameUI : MonoBehaviour
 {
-    enum Panel { Main, Shop }
-
-    Panel panel = Panel.Main;
     GUIStyle label, center, right, small, tiny, big, button, toastStyle, hintStyle;
     GUIStyle titleGold, titleCream, tagline, heading, rowText, rowSmall, rowSmallRight, chipText, statValue, statLabel;
     float scale = 1f;

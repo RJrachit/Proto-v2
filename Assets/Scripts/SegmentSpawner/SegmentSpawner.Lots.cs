@@ -87,7 +87,7 @@ public partial class SegmentSpawner
             bool decorated = rng.NextDouble() < yardP;
             int yardKind = rng.Next(5);
             lot.yard = decorated ? (House.Yard)(1 + yardKind) : House.Yard.Lawn;
-            lot.tree = rng.NextDouble() < treeP;
+            lot.tree = rng.NextDouble() < treeP * TreeScale(placeStartZ + lot.z);   // (no lawn trees early on: see SegmentSpawner.Opening.cs)
             lot.porch = rng.NextDouble() < porchP;
             lot.table = rng.NextDouble() < tableP;
             lot.tableItems = rng.NextDouble() < GameConfig.TableItemChance;
@@ -143,13 +143,22 @@ public partial class SegmentSpawner
             foreach (var lot in side)
             {
                 if (!lot.house.IsBare) { ordered.Add(lot); orig.Add(lot.length); continue; }
-                if (room >= GameConfig.FillerMin + gap)
+                bool canFill = room >= GameConfig.FillerMin + gap;
+                if (!canFill && room >= 4.6f + gap)
+                {
+                    // too little road for a normal filler: still use it when the buildings could not take it up by stretching (never leave an empty gap)
+                    float cap = 0f;
+                    for (int k = 0; k < ordered.Count; k++) if (CanStretch(ordered[k], orig[k], orig[k], 1.35f)) cap += Mathf.Min(GameConfig.MaxHouseLength, orig[k] * 1.35f) - orig[k];
+                    canFill = room - cap > 1.5f * Mathf.Max(1, ordered.Count);
+                }
+                if (canFill)
                 {
                     float f = room - gap <= GameConfig.FillerMax ? room - gap : GameConfig.FillerTypical;
                     room -= f + gap;
                     lot.length = f;
                     lot.court = false; lot.destruct = 0; lot.tree = false; lot.tableItems = false; lot.table = false;
-                    if (rng.NextDouble() < 0.5) { lot.park = true; lot.parking = rng.NextDouble() < 0.3; lot.house.ForceShop = false; }
+                    bool wantPark = rng.NextDouble() < 0.5 && !InOpening(placeStartZ + lot.z);   // (the easy opening has shops here, not parks)
+                    if (wantPark) { lot.park = true; lot.parking = rng.NextDouble() < 0.3; lot.house.ForceShop = false; }
                     else { lot.park = false; lot.parking = false; lot.house.ForceShop = true; }
                     ordered.Add(lot); orig.Add(f);
                 }
@@ -174,6 +183,21 @@ public partial class SegmentSpawner
                     extra -= add;
                 }
             }
+            // Last resort: if the gaps would still be wide, let the buildings grow beyond their usual limits rather than leave empty road.
+            for (int pass = 0; pass < 4 && n > 0 && extra / n > 2f; pass++)
+            {
+                int open = 0;
+                for (int i2 = 0; i2 < n; i2++) if (CanStretch(ordered[i2], len[i2], orig[i2], 1.8f)) open++;
+                if (open == 0) break;
+                float share = extra / open;
+                for (int i2 = 0; i2 < n; i2++)
+                {
+                    if (!CanStretch(ordered[i2], len[i2], orig[i2], 1.8f)) continue;
+                    float add = Mathf.Min(share, Mathf.Min(GameConfig.MaxHouseLength * 1.6f, orig[i2] * 1.8f) - len[i2]);
+                    len[i2] += add;
+                    extra -= add;
+                }
+            }
             float g = gap + Mathf.Max(0f, extra) / Mathf.Max(1, n);
             float cursor = 0f;
             for (int i2 = 0; i2 < n; i2++)
@@ -188,8 +212,9 @@ public partial class SegmentSpawner
         }
     }
 
-    static bool CanStretch(Lot lot, float len, float orig)
+    static bool CanStretch(Lot lot, float len, float orig, float k = 1.35f)
     {
-        return !lot.court && !lot.beach && len < Mathf.Min(GameConfig.MaxHouseLength, orig * 1.35f) - 0.01f;
+        float limit = k > 1.4f ? Mathf.Min(GameConfig.MaxHouseLength * 1.6f, orig * k) : Mathf.Min(GameConfig.MaxHouseLength, orig * k);
+        return !lot.court && !lot.beach && len < limit - 0.01f;
     }
 }

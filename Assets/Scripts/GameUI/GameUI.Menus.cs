@@ -69,17 +69,13 @@ public partial class GameUI
 
         float bx = card.x + 22f, bw = card.width - 44f;
         float y = card.y + 112f;
-        if (UiTheme.Primary(new Rect(bx, y, bw, bh + 6f), "Resume", 36)) gm.Resume();
+        if (UiTheme.Tinted(new Rect(bx, y, bw, bh + 6f), "Resume", 36, UiTheme.Tone.Green)) gm.Resume();
         y += bh + 6f + gap;
-        if (UiTheme.Secondary(new Rect(bx, y, bw, bh), "Restart", 30)) gm.StartRun(gm.DailyMode);
+        if (UiTheme.Tinted(new Rect(bx, y, bw, bh), "Restart", 30, UiTheme.Tone.Yellow)) gm.StartRun();
         y += bh + gap;
-        if (UiTheme.Secondary(new Rect(bx, y, bw, bh), "Home", 30))
-        {
-            panel = Panel.Main;
-            gm.QuitToMenu();
-        }
+        if (UiTheme.Tinted(new Rect(bx, y, bw, bh), "Home", 30, UiTheme.Tone.Orange)) gm.QuitToMenu();
         y += bh + gap;
-        if (UiTheme.Secondary(new Rect(bx, y, bw, bh), "Options", 30)) OptionsMenu.Show();
+        if (UiTheme.Tinted(new Rect(bx, y, bw, bh), "Options", 30, UiTheme.Tone.Yellow)) OptionsMenu.Show();
     }
 
     // ---- main menu ----
@@ -89,12 +85,6 @@ public partial class GameUI
         UiTheme.Scrim(w, h, 1f);
         float topPad = 16f + insetT;
         DrawCoins(w - 22f - insetR, topPad);
-
-        if (panel == Panel.Shop)
-        {
-            DrawShop(gm, w, h, topPad);
-            return;
-        }
 
         float colW = Mathf.Min(380f, w - 40f);
         float cx, y;
@@ -115,26 +105,15 @@ public partial class GameUI
 
         // Play
         var playRect = new Rect(x0, y, colW, 96f);
-        if (UiTheme.Primary(Grow(playRect, Pulse(0.018f, 3f)), "PLAY", 48)) gm.StartRun(false);
+        if (UiTheme.Tinted(Grow(playRect, Pulse(0.018f, 3f)), "PLAY", 48, UiTheme.Tone.Green)) gm.StartRun();
         y += 96f + 16f;
 
-        // Daily route, with the streak underneath its name
-        var dailyRect = new Rect(x0, y, colW, 78f);
-        if (UiTheme.Secondary(dailyRect, "", 28)) gm.StartRun(true);
-        UiTheme.Label(new Rect(dailyRect.x, dailyRect.y + 8f, dailyRect.width, 36f), "Daily Route", T(29, TextAnchor.MiddleCenter, UiTheme.Cream));
-        GUI.Label(new Rect(dailyRect.x, dailyRect.y + 42f, dailyRect.width, 24f),
-                  "Streak " + Progress.DailyStreak + (Progress.DailyStreak == 1 ? " day" : " days") + "     Today's best " + Progress.DailyBest, rowSmall);
-        y += 78f + 14f;
-
-        // Shop / Options
-        float half = (colW - 12f) * 0.5f;
-        if (UiTheme.Secondary(new Rect(x0, y, half, 66f), "Shop", 28)) panel = Panel.Shop;
-        if (UiTheme.Secondary(new Rect(x0 + half + 12f, y, half, 66f), "Options", 28)) OptionsMenu.Show();
-        y += 66f + 14f;
-
         // How to play (the home page only): plays the tutorial again
-        if (UiTheme.Secondary(new Rect(x0, y, colW, 62f), "How to play", 28)) gm.StartTutorial();
-        y += 62f + 22f;
+        if (UiTheme.Tinted(new Rect(x0, y, colW, 66f), "How to play", 28, UiTheme.Tone.Yellow)) gm.StartTutorial();
+        y += 66f + 12f;
+
+        // Options
+        if (UiTheme.Tinted(new Rect(x0, y, colW, 66f), "Options", 28, UiTheme.Tone.Orange)) OptionsMenu.Show();
 
         // best score: top-left in portrait (the coins are top-right), under the logo in landscape
         float by = portrait ? topPad : h - 62f - insetB;
@@ -143,55 +122,6 @@ public partial class GameUI
         UiTheme.Shadow(best, 4f);
         UiTheme.Pill(best, new Color(0.05f, 0.07f, 0.14f, 0.88f));
         GUI.Label(new Rect(best.x, best.y, best.width, best.height), "Best Score  " + gm.HighScore, T(22, TextAnchor.MiddleCenter, UiTheme.Gold));
-    }
-
-    void DrawShop(GameManager gm, float w, float h, float topPad)
-    {
-        if (UiTheme.Secondary(new Rect(22f + insetL, topPad - 4f, 130f, 52f), "Back", 24)) panel = Panel.Main;
-
-        float cw = Mathf.Min(w - 40f, 500f);   // content column
-        float cx = (w - cw) * 0.5f;
-        UiTheme.Label(new Rect(0f, topPad + 54f, w, 60f), "BIKE COLOURS", T(40, TextAnchor.MiddleCenter, UiTheme.Gold), 2f);
-
-        int n = Progress.Skins.Length;
-        float top = topPad + 128f;
-        float rowH = Mathf.Min(84f, (h - top - insetB - 14f) / Mathf.Max(1, n));
-        for (int i = 0; i < n; i++)
-        {
-            var skin = Progress.Skins[i];
-            var row = new Rect(cx, top + i * rowH, cw, rowH - 10f);
-            UiTheme.Card(row);
-
-            // colour swatch
-            float sz = row.height - 22f;
-            var sw = new Rect(row.x + 14f, row.y + 11f, sz, sz);
-            UiTheme.Pill(sw, new Color(0f, 0f, 0f, 0.5f));
-            UiTheme.Pill(new Rect(sw.x + 3f, sw.y + 3f, sw.width - 6f, sw.height - 6f), skin.color);
-            GUI.Label(new Rect(sw.xMax + 14f, row.y, cw - 220f - sz, row.height), skin.name, T(27, TextAnchor.MiddleLeft, UiTheme.Cream));
-
-            bool owned = Progress.OwnsSkin(i);
-            bool selected = Progress.SelectedSkin == i;
-            var rect = new Rect(row.xMax - 168f, row.y + 8f, 154f, row.height - 16f);
-
-            if (selected)
-            {
-                UiTheme.Pill(rect, new Color(UiTheme.Mint.r, UiTheme.Mint.g, UiTheme.Mint.b, 0.9f));
-                GUI.Label(rect, "Selected", T(21, TextAnchor.MiddleCenter, UiTheme.Navy));
-            }
-            else if (owned)
-            {
-                if (UiTheme.Secondary(rect, "Select", 24)) gm.SelectSkin(i);
-            }
-            else
-            {
-                GUI.enabled = Progress.Coins >= skin.cost;
-                if (UiTheme.Primary(rect, "Buy " + skin.cost, 24))
-                {
-                    if (Progress.BuySkin(i)) gm.SelectSkin(i);
-                }
-                GUI.enabled = true;
-            }
-        }
     }
 
     // ---- game over ----
@@ -252,22 +182,14 @@ public partial class GameUI
         {
             // stacked
             float bw = card.width - 44f;
-            if (UiTheme.Primary(new Rect(card.x + 22f, by - 82f, bw, 74f), "Play again", 34)) gm.StartRun(gm.DailyMode);
-            if (UiTheme.Secondary(new Rect(card.x + 22f, by, bw, 66f), "Home", 28))
-            {
-                panel = Panel.Main;
-                gm.GoToMenu();
-            }
+            if (UiTheme.Tinted(new Rect(card.x + 22f, by - 82f, bw, 74f), "Play again", 34, UiTheme.Tone.Green)) gm.StartRun();
+            if (UiTheme.Tinted(new Rect(card.x + 22f, by, bw, 66f), "Home", 28, UiTheme.Tone.Orange)) gm.GoToMenu();
         }
         else
         {
             float bw = (card.width - 44f - 14f) * 0.5f;
-            if (UiTheme.Primary(new Rect(card.x + 22f, by - 8f, bw, 76f), "Play again", 32)) gm.StartRun(gm.DailyMode);
-            if (UiTheme.Secondary(new Rect(card.x + 22f + bw + 14f, by - 8f, bw, 76f), "Home", 30))
-            {
-                panel = Panel.Main;
-                gm.GoToMenu();
-            }
+            if (UiTheme.Tinted(new Rect(card.x + 22f, by - 8f, bw, 76f), "Play again", 32, UiTheme.Tone.Green)) gm.StartRun();
+            if (UiTheme.Tinted(new Rect(card.x + 22f + bw + 14f, by - 8f, bw, 76f), "Home", 30, UiTheme.Tone.Orange)) gm.GoToMenu();
         }
     }
 }

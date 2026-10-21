@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// Everything saved between runs: coins, bike skins, and the daily-route streak (PlayerPrefs).
+// Everything saved between runs: coins and bike skins (PlayerPrefs).
 public static class Progress
 {
     // ---- coins ----
@@ -49,42 +49,5 @@ public static class Progress
         if (!OwnsSkin(i)) return;
         PlayerPrefs.SetInt("SkinSel", i);
         PlayerPrefs.Save();
-    }
-
-    // ---- daily route ----
-
-    static string Today { get { return System.DateTime.Now.ToString("yyyyMMdd"); } }
-    static string Yesterday { get { return System.DateTime.Now.AddDays(-1).ToString("yyyyMMdd"); } }
-
-    // Same number all day, so everyone gets the same route.
-    public static int DailySeed { get { return int.Parse(Today); } }
-
-    public static int DailyBest { get { return PlayerPrefs.GetInt("DailyBest_" + Today, 0); } }
-
-    public static int DailyStreak
-    {
-        get
-        {
-            string last = PlayerPrefs.GetString("DailyLast", "");
-            if (last == Today || last == Yesterday) return PlayerPrefs.GetInt("DailyStreak", 0);
-            return 0;
-        }
-    }
-
-    // Call when a daily run ends. Returns bonus coins (only for the first daily run of the day).
-    public static int RecordDaily(int score)
-    {
-        int bonus = 0;
-        string last = PlayerPrefs.GetString("DailyLast", "");
-        if (last != Today)
-        {
-            int streak = last == Yesterday ? PlayerPrefs.GetInt("DailyStreak", 0) + 1 : 1;
-            PlayerPrefs.SetInt("DailyStreak", streak);
-            PlayerPrefs.SetString("DailyLast", Today);
-            bonus = 25 * Mathf.Min(streak, 7);
-        }
-        if (score > DailyBest) PlayerPrefs.SetInt("DailyBest_" + Today, score);
-        PlayerPrefs.Save();
-        return bonus;
     }
 }

@@ -174,8 +174,8 @@ public partial class SegmentSpawner
         house.canUnits = new Destructible[42];
 
         // Yard props: a pool of boxes (cars, scooters, stalls, garages) and bushes, re-arranged by House.LayoutYard().
-        var cubes = new Transform[14];
-        var cubeRenderers = new Renderer[14];
+        var cubes = new Transform[16];   // (14 + the two marks on the standing hoop's board)
+        var cubeRenderers = new Renderer[16];
         for (int i = 0; i < cubes.Length; i++)
         {
             var c = Prim.Make(PrimitiveType.Cube, "Prop", t, Vector3.zero, Vector3.one, Color.white, true);

@@ -33,6 +33,8 @@ public class Look : MonoBehaviour
 
     void Update()
     {
+        Prim.TickXRay();
+        House.TickBoardGlow();
         if (GameConfig.AmbientGradient != ambientOn)
         {
             ambientOn = GameConfig.AmbientGradient;

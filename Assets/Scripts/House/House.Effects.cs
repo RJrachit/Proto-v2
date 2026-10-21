@@ -123,7 +123,7 @@ public partial class House
     }
 
     static Texture2D beamTex, haloTex;
-    readonly EdgeFx fxPad = new EdgeFx(), fxMat = new EdgeFx(), fxMail = new EdgeFx();
+    readonly EdgeFx fxPad = new EdgeFx(), fxMat = new EdgeFx(), fxMail = new EdgeFx(), fxPath = new EdgeFx();
     readonly EdgeFx[] fxBalc = { new EdgeFx(), new EdgeFx(), new EdgeFx(), new EdgeFx(), new EdgeFx(), new EdgeFx() };   // one per balcony in the pool
 
     // This balcony is in use, not served yet, and its floor is not served either.
@@ -185,6 +185,9 @@ public partial class House
         for (int i = 0; i < fxBalc.Length; i++)
             fxBalc[i].Show(transform, BalconyOpen(i) ? balconies[i].slabR : null, 0.65f, pulse, a, wall);
         fxPad.Show(transform, (padRenderer != null && !paved && !groundDone) ? padRenderer : null, 0.9f, pulse, a, wall, false);   // the open lawn: bright yellow light along its rim only (nothing under the grass)
+        // the path to the door: the same bright yellow light along its rim as the lawn (nothing on the floor itself); the edge by the doormat is left to the doormat's own glow
+        Renderer pathR = pathRenderer != null ? pathRenderer : (pathVisualT != null ? pathVisualT.GetComponent<Renderer>() : null);
+        fxPath.Show(transform, (pathR != null && !groundDone) ? pathR : null, 0.9f, pulse, a, wall, false);
         fxMat.Show(transform, groundDone ? null : matRenderer, 0.40f, pulse, a, 0);
         fxMail.Show(transform, (!groundDone && mailboxRenderer != null && beachScene != 1 && beachScene != 2) ? mailboxRenderer : null, 0.35f, pulse, a, 0);
         tfxOn = true;
@@ -193,7 +196,7 @@ public partial class House
     void HideZoneGlows()
     {
         for (int i = 0; i < fxBalc.Length; i++) fxBalc[i].Hide();
-        fxPad.Hide(); fxMat.Hide(); fxMail.Hide();
+        fxPad.Hide(); fxMat.Hide(); fxMail.Hide(); fxPath.Hide();
     }
 
     readonly Transform[] tfx = new Transform[10];        // 0 lawn, 2 mailbox, 3 doormat, 4-9 the balconies (1 is not used)

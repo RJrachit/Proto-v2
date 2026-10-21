@@ -132,7 +132,7 @@ public partial class GameUI
         {
             var rect = new Rect(w - 80f - insetR, top, 60f, 60f);
             pauseRectScreen = new Rect(rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale);
-            if (UiTheme.Secondary(rect, "II", 24)) gm.Pause();
+            if (UiTheme.Tinted(rect, "II", 24, UiTheme.Tone.Green)) gm.Pause();
         }
     }
 

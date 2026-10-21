@@ -99,6 +99,7 @@ public partial class GameUI : MonoBehaviour
 
         pauseRectScreen = new Rect(0f, 0f, 0f, 0f);
 
+        GUI.enabled = !Tutorial.Modal;   // while the pull lesson is up, no button on the screen works (the pause button included)
         switch (gm.State)
         {
             case GameManager.RunState.Menu:
@@ -113,6 +114,7 @@ public partial class GameUI : MonoBehaviour
                 DrawGameOver(gm, w, h);
                 break;
         }
+        GUI.enabled = true;
     }
 
     // ---- in-run HUD ----

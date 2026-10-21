@@ -42,7 +42,7 @@ public partial class House
         for (int i = 0; i < balcAura.Length && i < balconies.Length; i++)
         {
             var b = balconies[i];
-            bool show = b.on && b.slab != null && b.slab.gameObject.activeInHierarchy;
+            bool show = b.on && b.slab != null && b.slab.gameObject.activeInHierarchy && !HoopFocusHere;   // (none in the tutorial's basket shot)
             if (!show) { if (balcAura[i] != null) balcAura[i].gameObject.SetActive(false); continue; }
             if (balcAura[i] == null)
             {

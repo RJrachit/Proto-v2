@@ -70,7 +70,7 @@ public partial class House
     }
 
     // The board on the house wall with its ring bracket: ringY = ring height, by = board centre above the ring, bh = board height.
-    void WallBoard(float ringY, float by, float bh, float hz)
+    Transform WallBoard(float ringY, float by, float bh, float hz)
     {
         float s = side;
         float wallX = s * 8.47f;
@@ -80,6 +80,7 @@ public partial class House
         Part(new Vector3(wallX - s * 0.11f, ringY + by - 0.12f, hz), new Vector3(0.04f, bh * 0.48f, 0.7f), new Color(0.55f, 0.65f, 0.80f), false);   // the square
         Part(new Vector3(wallX - s * 0.02f, ringY + by, hz), new Vector3(0.12f, bh + 0.07f, 1.68f), frame, false);                  // dark edge behind
         Part(new Vector3(s * 8.12f, ringY, hz), new Vector3(0.5f, 0.06f, 0.06f), frame, false);                                    // ring bracket
+        return board;
     }
 
     // A ring (solid, dead rim) and its stringy net (not solid) centred on (x, y, z).
@@ -88,8 +89,10 @@ public partial class House
         for (int k = 0; k < 8; k++)
         {
             float a = k * 45f * Mathf.Deg2Rad;
-            SoftRim(Part(new Vector3(x + Mathf.Cos(a) * 0.45f, y, z + Mathf.Sin(a) * 0.45f),
-                 new Vector3(0.08f, 0.08f, 0.38f), new Color(1.00f, 0.85f, 0.20f), true, new Vector3(0f, -k * 45f, 0f)));
+            var rim = Part(new Vector3(x + Mathf.Cos(a) * 0.45f, y, z + Mathf.Sin(a) * 0.45f),
+                 new Vector3(0.10f, 0.10f, 0.38f), Prim.RimOrange, true, new Vector3(0f, -k * 45f, 0f));
+            SoftRim(rim);
+            GlowRim(rim);   // (orange and bright: the ring must stand out)
         }
         for (int k = 0; k < 4; k++)
         {
@@ -119,7 +122,7 @@ public partial class House
             HandleHit(HouseTarget.Kind.Hoop, pos, snapped);
             if (gm.Streak == before) gm.CountHit();      // (the same for the ground-floor ring)
             if (open) gm.BasketScored();
-            if (trick && open) gm.TrickBonus(Scoring.Points(HouseTarget.Kind.Hoop, snapped) * (GameConfig.TrickShotMultiplier - 1), "Drunk Dunkkk! +", pos);
+            if (trick && open) gm.TrickBonus(Scoring.Points(HouseTarget.Kind.Hoop, snapped) * (GameConfig.TrickShotMultiplier - 1), "Trick Shot!", pos);
             return;
         }
 
@@ -127,7 +130,7 @@ public partial class House
         if (second ? hoopUsed2 : hoopUsed) { gm.CountHit(); return; }   // (a ring already used pays nothing, but the hit counts)
         if (second) hoopUsed2 = true; else hoopUsed = true;
         gm.BasketScored();
-        gm.Bonus(GameConfig.PointsHoopBonus, "Dunkkkk! +", pos);
-        if (trick) gm.TrickBonus(GameConfig.PointsHoopBonus * (GameConfig.TrickShotMultiplier - 1), "Drunk Dunkkk! +", pos);
+        gm.Bonus(GameConfig.PointsHoopBonus, "Swish! +", pos);
+        if (trick) gm.TrickBonus(GameConfig.PointsHoopBonus * (GameConfig.TrickShotMultiplier - 1), "Trick Shot!", pos);
     }
 }

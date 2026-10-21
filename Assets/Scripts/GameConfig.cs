@@ -153,8 +153,8 @@ public static class GameConfig
     // The bell scares hazards this far ahead of the bike.
     public static float BellRange = 20f;
     public static float BellCooldown = 0.6f;
-    // Seconds of countdown after un-pausing.
-    public static float ResumeCountdown = 3f;
+    // Seconds the pause screen takes to fade away after un-pausing (no 3-2-1 any more).
+    public static float ResumeCountdown = 0.5f;
 
     // ---- lives: the run ends when they reach zero
     public static int StartingLives = 3;
@@ -179,6 +179,11 @@ public static class GameConfig
     public static int PointsPath = 40;
     public static int PointsDoorstep = 50;
     public static int PointsMailbox = 100;
+    // ---- coins: earned as you play, paid out when the run ends
+    public const int CoinsPerBasket = 3;     // every basket (each ring pays once)
+    public const int CoinsPerBalcony = 1;    // every balcony hit, even if the house is never finished (a basket pays the ones it serves)
+    // a house cleared pays one coin per storey (1, 2 or 3)
+
     public static int PointsBalcony = 75;
     // Bonus for ending on a precise spot (off: the base points above are the whole score; the paper still snaps to the spot).
     public static int SnapBonusDoorstep = 0;

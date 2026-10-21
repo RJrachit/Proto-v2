@@ -17,6 +17,7 @@ public partial class House
     public const float StoreyH = 3.5f;          // height of an upper storey
     public const float GroundStoreyH = 5.0f;    // the ground storey is taller (the wall hoop's board, up to 4.0 m, has to stay under the eaves)
     public const int MaxBalconies = 3;          // per upper floor
+    public const float StdBalconyW = 2.6f;      // the usual balcony: the width of a door (the tutorial tower uses it too)
     public const int UpperWindowSlots = 4;      // window slots per upper floor
 
     // One balcony: slab, railing, door and the target zone above the slab. Pooled: three per upper floor, laid out again by every Setup.
@@ -41,6 +42,9 @@ public partial class House
     [System.NonSerialized] public int WantFloors = 1;
     [System.NonSerialized] public int WantBalc1 = 1, WantBalc2 = 1;
     [System.NonSerialized] public bool WantHoop;     // the building's hoop (a house with upper floors)
+    // The tutorial's tower: the exact balconies of the middle (1) and top (2) floor, as (centre z along the house, width) pairs.
+    // null = the usual balconies. The count must match WantBalc1 / WantBalc2.
+    [System.NonSerialized] public Vector2[] WantLayout1, WantLayout2;
 
     int floors = 1;                              // storeys, ground included
     readonly int[] balcCount = new int[3];       // balconies planned per storey (1 and 2 are used)
@@ -124,12 +128,18 @@ public partial class House
             {
                 var b = balconies[(f - 1) * MaxBalconies + k];
                 float w, z;
-                if (c == 1)
+                var fixedLayout = f == 1 ? WantLayout1 : WantLayout2;
+                if (fixedLayout != null && k < fixedLayout.Length)
+                {
+                    w = Mathf.Min(fixedLayout[k].y, usable);
+                    z = Mathf.Clamp(fixedLayout[k].x, -half + 0.1f + w * 0.5f, half - 0.1f - w * 0.5f);
+                }
+                else if (c == 1)
                 {
                     // one balcony: usually the size of a door, sometimes wide, in front of several windows
                     bool wide = usable >= 4.4f && Hash01(transform.position.z * 0.877f + f * 5.3f + (side > 0 ? 3.3f : 40.7f)) < 0.45f;
                     float wideLen = 4.6f + (Hash01(transform.position.z * 1.931f + f * 2.1f) < 0.4f ? 2.2f : 0f);
-                    w = wide ? Mathf.Min(usable, wideLen) : Mathf.Min(2.6f, usable);
+                    w = wide ? Mathf.Min(usable, wideLen) : Mathf.Min(StdBalconyW, usable);
                     z = Mathf.Clamp(doorZ, -half + 0.1f + w * 0.5f, half - 0.1f - w * 0.5f);
                 }
                 else
@@ -247,8 +257,90 @@ public partial class House
     // ---- floor hoops ----
 
     // The hoops of the upper floors: a board and ring on the wall above the floor's first balcony. Called after the lot's parts were reset.
+    Renderer boardGlowR;   // the tutorial tower's backboard, glowing orange
+
+    void GlowBoard(Transform board)
+    {
+        var r = board != null ? board.GetComponent<Renderer>() : null;
+        if (r == null) return;
+        Prim.GlowOrange(r);
+        glowRend.Add(r);   // (a reused part goes back to a plain material)
+        boardGlowR = r;
+    }
+
+    // The soft orange light round the board's edges (the tutorial's basket shot): a quad just behind the board, brightest at the board's edge
+    // and fading out to nothing, so it reads as a glow round the board and not as a rectangle.
+    Transform boardHalo, boardHalo2;   // (the second, tighter one doubles the light close to the board)
+    Material boardHaloMat;
+    static Texture2D boardHaloTex;
+    const float HaloW = 3.6f, HaloH = 3.05f;   // the quad's size (m): the board is 1.6 x 1.05
+
+    static Texture2D BoardHaloTex()
+    {
+        if (boardHaloTex != null) return boardHaloTex;
+        const int n = 64;
+        boardHaloTex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+        boardHaloTex.wrapMode = TextureWrapMode.Clamp;
+        boardHaloTex.filterMode = FilterMode.Bilinear;
+        var px = new Color[n * n];
+        float hw = HaloW * 0.5f, hh = HaloH * 0.5f;
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float mx = Mathf.Abs((x + 0.5f) / n * 2f - 1f) * hw, my = Mathf.Abs((y + 0.5f) / n * 2f - 1f) * hh;   // metres from the middle
+                float dx = Mathf.Max(0f, mx - 0.80f), dy = Mathf.Max(0f, my - 0.525f);                              // metres outside the board
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                float a = Mathf.Exp(-Mathf.Pow(d / 0.36f, 1.1f)) * Mathf.Clamp01(1f - d / 1.0f);
+                px[y * n + x] = new Color(1f, 1f, 1f, a);
+            }
+        boardHaloTex.SetPixels(px);
+        boardHaloTex.Apply();
+        return boardHaloTex;
+    }
+
+    void ShowBoardHalo(float ringY, float hz)
+    {
+        if (boardHalo == null)
+        {
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            q.name = "BoardGlow";
+            Object.Destroy(q.GetComponent<Collider>());
+            q.transform.SetParent(transform, false);
+            var r = q.GetComponent<Renderer>();
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r.receiveShadows = false;
+            boardHaloMat = new Material(Mat.Particle());
+            boardHaloMat.mainTexture = BoardHaloTex();
+            r.sharedMaterial = boardHaloMat;
+            boardHalo = q.transform;
+            var q2 = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            q2.name = "BoardGlow2";
+            Object.Destroy(q2.GetComponent<Collider>());
+            q2.transform.SetParent(transform, false);
+            var r2 = q2.GetComponent<Renderer>();
+            r2.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            r2.receiveShadows = false;
+            r2.sharedMaterial = boardHaloMat;
+            boardHalo2 = q2.transform;
+        }
+        Vector3 intoHouse = transform.TransformDirection(new Vector3(side, 0f, 0f));
+        boardHalo.localPosition = new Vector3(side * 8.385f, ringY + 0.4f, hz);   // just behind the board's face, just in front of its dark frame
+        boardHalo.rotation = Quaternion.LookRotation(intoHouse, Vector3.up);
+        boardHalo.localScale = new Vector3(HaloW, HaloH, 1f);
+        boardHalo.gameObject.SetActive(true);
+        boardHalo2.localPosition = boardHalo.localPosition;
+        boardHalo2.rotation = boardHalo.rotation;
+        boardHalo2.localScale = new Vector3(HaloW * 0.72f, HaloH * 0.72f, 1f);
+        boardHalo2.gameObject.SetActive(true);
+    }
+
+    // True while the tutorial's basket shot is on and this is the building with the basket: its balconies do not glow then.
+    bool HoopFocusHere { get { return Tutorial.HoopFocus && floorHoopOn[1]; } }
+
     void LayoutFloorHoops()
     {
+        boardGlowR = null;
+        if (boardHalo != null) { boardHalo.gameObject.SetActive(false); boardHalo2.gameObject.SetActive(false); }
         if (floorHoopZ == null || floorHoopSnap == null) return;
         float s = side;
         for (int f = 1; f < floors; f++)
@@ -257,7 +349,15 @@ public partial class House
             float hz = floorHoopAt[f];
             float ringY = FloorBase(f) + 2.3f;
             float ringX = s * 7.88f;
-            WallBoard(ringY, 0.4f, 1.05f, hz);
+            var board = WallBoard(ringY, 0.4f, 1.05f, hz);
+            if (Tutorial.Active)
+            {
+                // the tutorial's board glows orange (see ShimmerTargets), with a brighter glow round its edges, and guides a paper that touches it into the ring
+                GlowBoard(board);
+                ShowBoardHalo(ringY, hz);
+                var bsb = board != null ? board.GetComponent<BankSurface>() : null;
+                if (bsb != null) bsb.guideRing = floorHoopZ[f];
+            }
             RingParts(ringX, ringY, hz);
             SetZone(floorHoopZ[f], new Vector3(ringX, ringY, hz), new Vector3(0.9f, 0.6f, 0.9f));
             floorHoopZ[f].openingHalf = 0f;
@@ -293,15 +393,6 @@ public partial class House
         return true;
     }
 
-    // Toast text after a part of a house with several floors was served.
-    string LeftSuffix(bool all)
-    {
-        if (floors <= 1) return null;
-        if (all) return "  House served!";
-        int left = FloorsLeft();
-        return "  " + left + (left == 1 ? " floor to go" : " floors to go");
-    }
-
     // A paper touched a floor slab from above (called by Paper on contact). If it is the slab of a balcony that is still open, the balcony counts right now.
     // Returns true when it did. A balcony that is already done, or any slab of a house that is not a customer's, is left to the normal landing.
     public bool TouchBalconyFloor(Collider c, Vector3 pos)
@@ -323,18 +414,20 @@ public partial class House
     {
         var gm = GameManager.Instance;
         if (gm == null || !Subscriber) return;
-        if (resolved) { gm.ShowToast("Already handled"); return; }
+        if (resolved) return;
         BalconySet b = balconies != null && zone != null && zone.index >= 0 && zone.index < balconies.Length ? balconies[zone.index] : null;
         if (b == null || !b.on) return;
-        if (b.hit || floorDone[b.floor]) { gm.ShowToast("Balcony already done"); return; }
+        if (b.hit || floorDone[b.floor]) return;
 
         b.hit = true;
+        gm.AddRunCoins(GameConfig.CoinsPerBalcony);
+        Tutorial.OnBalcony(b.floor);
         if (b.slabR != null) b.slabR.material.color = Gold;
         if (FloorBalconiesAllHit(b.floor)) floorDone[b.floor] = true;
         bool all = AllServed();
-        if (all) Finish(Gold);
+        if (all) { Finish(Gold); gm.AddRunCoins(floors); }   // a house cleared: one coin per storey
         UpdatePips();
-        gm.Delivered(Scoring.Points(HouseTarget.Kind.Balcony, snapped), pos, HouseTarget.Kind.Balcony, all, LeftSuffix(all));
+        gm.Delivered(Scoring.Points(HouseTarget.Kind.Balcony, snapped), pos, HouseTarget.Kind.Balcony, all);
     }
 
     // A paper dropped through the building's ring: every balcony of every upper floor is served at once. It pays all of them by hand plus 25%
@@ -343,16 +436,16 @@ public partial class House
     {
         var gm = GameManager.Instance;
         if (gm == null || !Subscriber) return;
-        if (resolved || floors < 2 || UpperServed()) { gm.ShowToast("Balconies already done"); return; }
+        if (resolved || floors < 2 || UpperServed()) return;
 
         int each = Scoring.Points(HouseTarget.Kind.Balcony, true);
-        int count = 0, paid = 0;
+        int count = 0, paid = 0, fresh = 0;
         for (int i = 0; i < balconies.Length; i++)
         {
             var b = balconies[i];
             if (!b.on) continue;
             count++;
-            if (b.hit) paid += each;
+            if (b.hit) paid += each; else fresh++;
             b.hit = true;
             if (b.slabR != null) b.slabR.material.color = Gold;
         }
@@ -362,9 +455,11 @@ public partial class House
         if (all) Finish(Gold);
         UpdatePips();
         Tutorial.OnBuildingHoop();
+        gm.AddRunCoins(fresh * GameConfig.CoinsPerBalcony);   // the balconies the basket served that were still open
+        if (all) gm.AddRunCoins(floors);                      // a house cleared: one coin per storey
         gm.BasketScored();
-        gm.Delivered(pay, pos, HouseTarget.Kind.Hoop, all, LeftSuffix(all));
-        if (trick) gm.TrickBonus(pay * (GameConfig.TrickShotMultiplier - 1), "Drunk Dunkkk! +", pos);
+        gm.Delivered(pay, pos, HouseTarget.Kind.Hoop, all);
+        if (trick) gm.TrickBonus(pay * (GameConfig.TrickShotMultiplier - 1), "Trick Shot!", pos);
     }
 
     // Every upper floor is served.

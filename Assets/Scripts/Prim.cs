@@ -30,6 +30,25 @@ public static class Prim
         else if (pipeline.defaultMaterial != null) r.sharedMaterial = pipeline.defaultMaterial;
     }
 
+    // The hoop rings glow orange: bright whatever the light (an unlit material), so they stand out clearly, day or night.
+    public static readonly Color RimOrange = new Color(1.00f, 0.45f, 0.05f);
+    static Material rimMat;
+
+    public static void GlowOrange(Renderer r)
+    {
+        if (r == null) return;
+        if (rimMat == null)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) shader = Shader.Find("Unlit/Color");
+            if (shader == null) { r.material.color = RimOrange; return; }   // (no unlit shader in this build: plain orange)
+            rimMat = new Material(shader);
+            rimMat.color = RimOrange;
+            if (rimMat.HasProperty("_BaseColor")) rimMat.SetColor("_BaseColor", RimOrange);
+        }
+        r.sharedMaterial = rimMat;
+    }
+
     // A cylinder primitive comes with a capsule collider, which is the wrong shape for a flat disc: give it a collider that matches the disc.
     public static void RoundCollider(GameObject go)
     {

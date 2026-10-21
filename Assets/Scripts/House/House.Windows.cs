@@ -167,7 +167,7 @@ public partial class House
         if (gm == null) return;
         var slot = FindWindow(groundWindows, zone) ?? FindWindow(upperWindows, zone);
         if (slot == null) return;
-        if (slot.broken) { gm.ShowToast("Already broken"); return; }
+        if (slot.broken) return;
         slot.broken = true;
         if (slot.glass != null)
         {

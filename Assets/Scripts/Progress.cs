@@ -1,7 +1,6 @@
-using System.Collections.Generic;
 using UnityEngine;
 
-// Everything saved between runs: coins, bike skins, the daily-route streak and daily missions (PlayerPrefs).
+// Everything saved between runs: coins, bike skins, and the daily-route streak (PlayerPrefs).
 public static class Progress
 {
     // ---- coins ----
@@ -87,75 +86,5 @@ public static class Progress
         if (score > DailyBest) PlayerPrefs.SetInt("DailyBest_" + Today, score);
         PlayerPrefs.Save();
         return bonus;
-    }
-
-    // ---- daily missions ----
-
-    public enum Stat { Delivered, Mailbox, Balcony, BestCombo, Bell }
-
-    public class Mission
-    {
-        public int index;
-        public string text;
-        public Stat stat;
-        public int target;
-        public int reward;
-    }
-
-    static readonly Mission[] Pool =
-    {
-        new Mission { index = 0, text = "Deliver 15 papers",           stat = Stat.Delivered, target = 15, reward = 40 },
-        new Mission { index = 1, text = "Hit 3 mailboxes",             stat = Stat.Mailbox,   target = 3,  reward = 50 },
-        new Mission { index = 2, text = "Reach a 6 streak",            stat = Stat.BestCombo, target = 6,  reward = 60 },
-        new Mission { index = 3, text = "Clear 3 hazards with bell",   stat = Stat.Bell,      target = 3,  reward = 40 },
-        new Mission { index = 4, text = "Deliver 30 papers",           stat = Stat.Delivered, target = 30, reward = 80 },
-        new Mission { index = 5, text = "Hit 6 mailboxes",             stat = Stat.Mailbox,   target = 6,  reward = 90 },
-        new Mission { index = 6, text = "Hit 3 balconies",             stat = Stat.Balcony,   target = 3,  reward = 60 },
-    };
-
-    static Mission[] todays;
-    static string todaysKey;
-
-    public static Mission[] TodayMissions()
-    {
-        if (todays != null && todaysKey == Today) return todays;
-
-        var rng = new System.Random(DailySeed);
-        var left = new List<int>();
-        for (int i = 0; i < Pool.Length; i++) left.Add(i);
-        todays = new Mission[3];
-        for (int k = 0; k < todays.Length; k++)
-        {
-            int pick = rng.Next(left.Count);
-            todays[k] = Pool[left[pick]];
-            left.RemoveAt(pick);
-        }
-        todaysKey = Today;
-        return todays;
-    }
-
-    public static int Count(Mission m) { return PlayerPrefs.GetInt("MP_" + Today + "_" + m.index, 0); }
-
-    public static bool Done(Mission m) { return Count(m) >= m.target; }
-
-    public static void AddStat(Stat stat, int amount)
-    {
-        foreach (var m in TodayMissions())
-        {
-            if (m.stat != stat) continue;
-            string key = "MP_" + Today + "_" + m.index;
-            int before = PlayerPrefs.GetInt(key, 0);
-            if (before >= m.target) continue;
-
-            int after = stat == Stat.BestCombo ? Mathf.Max(before, amount) : before + amount;
-            PlayerPrefs.SetInt(key, after);
-            if (after >= m.target)
-            {
-                AddCoins(m.reward);
-                if (GameManager.Instance != null)
-                    GameManager.Instance.ShowToast("Mission done: " + m.text + "  +" + m.reward, 3f);
-            }
-        }
-        PlayerPrefs.Save();
     }
 }

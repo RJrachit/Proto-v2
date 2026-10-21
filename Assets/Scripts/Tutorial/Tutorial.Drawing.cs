@@ -35,6 +35,7 @@ public partial class Tutorial
         }
         UiTheme.Ensure();
         EnsureStyles();
+        GUI.enabled = true;
         GUI.depth = -50;
 
         bool portrait = Screen.height > Screen.width;
@@ -44,6 +45,13 @@ public partial class Tutorial
         float h = Screen.height / scale;
         Rect safe = Screen.safeArea;
         float insetL = safe.x / scale, insetR = (Screen.width - safe.xMax) / scale, insetB = safe.y / scale, insetT = (Screen.height - safe.yMax) / scale;
+
+        // the pull lesson comes first: the game stands still behind a dark overlay
+        if (pullLesson) { DrawPullLesson(w, h, scale, insetT, insetB); DrawFadeOverlay(w, h); return; }
+        if (nearLesson || longLesson) { DrawNearLesson(w, h, scale, insetT); DrawFadeOverlay(w, h); return; }
+        if (floorsIntro) { DrawFloorsIntro(w, h, scale, insetT, insetB); DrawFadeOverlay(w, h); return; }
+        if (hoopIntro) { DrawHoopIntro(w, h, scale, insetT, insetB); DrawFadeOverlay(w, h); return; }
+        if (step == 2 && (afterLong || groundPhase)) { DrawLongAfter(w, h, scale, insetT); DrawFadeOverlay(w, h); return; }
 
         // the first card of the intro: scoring and non-scoring spots side by side, filling the screen
         if (step == 0 && introPhase == 0)
@@ -94,9 +102,9 @@ public partial class Tutorial
         }
 
         UiTheme.Label(new Rect(card.x + 12f, card.y + 28f, card.width - 24f, 40f), Titles[step], titleS, 1.5f);
-        GUI.Label(new Rect(card.x + 24f, card.y + 70f, card.width - 48f, 62f), Subs[step], subS);
+        GUI.Label(new Rect(card.x + 24f, card.y + 70f, card.width - 48f, 62f), ForControls(Subs[step]), subS);
         if (IsHouseStep(step) && throws >= 3)
-            GUI.Label(new Rect(card.x + 24f, card.yMax - 34f, card.width - 48f, 26f), Hints[step - 1], hintS);
+            GUI.Label(new Rect(card.x + 24f, card.yMax - 34f, card.width - 48f, 26f), ForControls(Hints[step - 1]), hintS);
 
         // buttons on the caption steps
         if (caption)

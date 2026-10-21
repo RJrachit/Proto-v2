@@ -61,6 +61,14 @@ public partial class GameUI
             var chip = new Rect(x, top + 84f, hudChip.CalcSize(new GUIContent(trip)).x + 30f, 42f);
             UiTheme.Pill(chip, Glass);
             GUI.Label(chip, trip, hudChip);
+
+            // the coins earned in this run: a coin and +N
+            string coinTxt = "+" + gm.RunCoins;
+            float coinTw = hudChip.CalcSize(new GUIContent(coinTxt)).x;
+            var coinChip = new Rect(x, top + 134f, coinTw + 62f, 42f);
+            UiTheme.Pill(coinChip, Glass);
+            DrawCoinIcon(new Rect(coinChip.x + 10f, coinChip.y + 8f, 26f, 26f));
+            GUI.Label(new Rect(coinChip.x + 40f, coinChip.y, coinTw + 14f, coinChip.height), coinTxt, hudChip);
         }
 
         // ---- the right column: the pause button, the lives just below it, and the slow-mo meter just below the lives ----
@@ -78,13 +86,19 @@ public partial class GameUI
         // ---- streak banner (a gold pill that beats; orange for the super streak) ----
         if (gm.HotStreak)
         {
-            string txt = (gm.SuperStreak ? "SUPER HOT STREAK  x" : "HOT STREAK  x") + gm.Multiplier;
-            float bw = Mathf.Min(w - 40f, hudBanner.CalcSize(new GUIContent(txt)).x + 52f);
+            string txt = gm.SuperStreak ? "SUPER HOT" : "HOT STREAK";   // (the flames come after the words)
+            GameManager.ToastIcon flames = gm.SuperStreak ? GameManager.ToastIcon.FireDouble : GameManager.ToastIcon.Fire;
+            const float flameSize = 30f;
+            float textW = hudBanner.CalcSize(new GUIContent(txt)).x;
+            float contentW = textW + 6f + IconsWidth(flames, flameSize);
+            float bw = Mathf.Min(w - 40f, contentW + 44f);
             var banner = new Rect((w - bw) * 0.5f, top + 164f, bw, 42f);
             saved = GUI.matrix;
             GUIUtility.ScaleAroundPivot(Vector2.one * (1f + 0.05f * Mathf.Sin(Time.unscaledTime * 8f)), banner.center);
             UiTheme.Pill(banner, gm.SuperStreak ? new Color(1f, 0.50f, 0.18f) : UiTheme.Gold);
-            GUI.Label(banner, txt, hudBanner);
+            float bx0 = banner.center.x - contentW * 0.5f;
+            GUI.Label(new Rect(bx0, banner.y, textW + 4f, banner.height), txt, hudBanner);
+            DrawIcons(flames, bx0 + textW + 6f, banner.center.y - flameSize * 0.5f - 1f, flameSize, 1f, true);
             GUI.matrix = saved;
         }
 
@@ -97,13 +111,19 @@ public partial class GameUI
         {
             float fade = Mathf.Clamp01((gm.ToastUntil - Time.unscaledTime) / 0.35f);
             var content = new GUIContent(gm.Toast);
-            float tw = Mathf.Min(w - 40f, toastStyle.CalcSize(content).x + 56f);
-            float th = toastStyle.CalcHeight(content, tw - 40f) + 18f;
+            const float iconSize = 34f;
+            float iconW = IconsWidth(gm.ToastIconKind, iconSize);
+            float extra = iconW > 0f ? iconW + 10f : 0f;   // (room for the icon(s) after the words)
+            float tw = Mathf.Min(w - 40f, toastStyle.CalcSize(content).x + extra + 56f);
+            float th = toastStyle.CalcHeight(content, tw - 40f - extra) + 18f;
             var pill = new Rect((w - tw) * 0.5f, top + 222f, tw, th);
             Color keep = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, fade);
             UiTheme.Pill(pill, new Color(Glass.r, Glass.g, Glass.b, Glass.a * fade));
-            UiTheme.Label(new Rect(pill.x + 20f, pill.y + 9f, tw - 40f, th), gm.Toast, toastStyle);
+            float textW = Mathf.Min(tw - 40f - extra, toastStyle.CalcSize(content).x + 4f);
+            float startX = pill.center.x - (textW + extra) * 0.5f;
+            UiTheme.Label(new Rect(startX, pill.y + 9f, textW, th), gm.Toast, toastStyle);
+            if (iconW > 0f) DrawIcons(gm.ToastIconKind, startX + textW + 10f, pill.center.y - iconSize * 0.5f, iconSize, fade);
             GUI.color = keep;
         }
 
@@ -114,6 +134,105 @@ public partial class GameUI
             pauseRectScreen = new Rect(rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale);
             if (UiTheme.Secondary(rect, "II", 24)) gm.Pause();
         }
+    }
+
+    // ---- icons drawn after toast / banner text: one flame, two flames, or a yellow alert triangle (the default GUI font has none of these) ----
+    static float IconsWidth(GameManager.ToastIcon icon, float size)
+    {
+        if (icon == GameManager.ToastIcon.None) return 0f;
+        int n = icon == GameManager.ToastIcon.FireDouble ? 2 : 1;
+        return n * size - (n - 1) * size * 0.2f;
+    }
+
+    static void DrawIcons(GameManager.ToastIcon icon, float x, float y, float size, float alpha, bool onBright = false)
+    {
+        Color keep = GUI.color;
+        if (icon == GameManager.ToastIcon.Alert) DrawAlert(new Rect(x, y, size, size), alpha);
+        else if (icon == GameManager.ToastIcon.Fire) DrawFlame(new Rect(x, y, size, size), alpha, onBright);
+        else if (icon == GameManager.ToastIcon.FireDouble)
+        {
+            DrawFlame(new Rect(x, y, size, size), alpha, onBright);
+            DrawFlame(new Rect(x + size * 0.8f, y, size, size), alpha, onBright);
+        }
+        GUI.color = keep;
+    }
+
+    // onBright: the flame sits on the gold / orange banner, so it is drawn deep red there (an orange flame would vanish)
+    static void DrawFlame(Rect r, float alpha, bool onBright)
+    {
+        var tex = FlameTexture();
+        GUI.color = onBright ? new Color(0.72f, 0.12f, 0.03f, alpha) : new Color(1f, 0.38f, 0.06f, alpha);
+        GUI.DrawTexture(r, tex);
+        GUI.color = onBright ? new Color(1f, 0.90f, 0.40f, alpha) : new Color(1f, 0.86f, 0.25f, alpha);   // the bright core
+        GUI.DrawTexture(new Rect(r.x + r.width * 0.25f, r.y + r.height * 0.40f, r.width * 0.5f, r.height * 0.58f), tex);
+    }
+
+    static void DrawAlert(Rect r, float alpha)
+    {
+        GUI.color = new Color(1f, 0.80f, 0.10f, alpha);
+        GUI.DrawTexture(r, AlertTexture());
+        GUI.color = new Color(0.14f, 0.12f, 0.08f, alpha);   // the "!"
+        float s = r.width;
+        GUI.DrawTexture(new Rect(r.center.x - s * 0.06f, r.y + s * 0.38f, s * 0.12f, s * 0.28f), Texture2D.whiteTexture);
+        GUI.DrawTexture(new Rect(r.center.x - s * 0.07f, r.y + s * 0.72f, s * 0.14f, s * 0.12f), Texture2D.whiteTexture);
+    }
+
+    static Texture2D flameTexture, alertTexture;
+
+    // A flame (round at the bottom, a leaning tip), drawn once into a small texture.
+    static Texture2D FlameTexture()
+    {
+        if (flameTexture != null) return flameTexture;
+        const int n = 64;
+        var tex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+        for (int py = 0; py < n; py++)
+        {
+            for (int px = 0; px < n; px++)
+            {
+                float x = px / (n - 1f) * 2f - 1f;    // -1..1
+                float y = py / (n - 1f) * 2f;         // 0..2, upwards
+                bool inside;
+                if (y < 0.72f) inside = x * x + (y - 0.72f) * (y - 0.72f) <= 0.68f * 0.68f;
+                else
+                {
+                    float t = Mathf.Clamp01((y - 0.72f) / 1.28f);
+                    float hw = 0.68f * Mathf.Pow(1f - t, 1.5f);
+                    float c = 0.22f * t * t;           // the tip leans to the right
+                    inside = Mathf.Abs(x - c) <= hw;
+                }
+                tex.SetPixel(px, py, inside ? Color.white : new Color(1f, 1f, 1f, 0f));
+            }
+        }
+        tex.Apply();
+        flameTexture = tex;
+        return tex;
+    }
+
+    // A triangle (point up) for the alert icon.
+    static Texture2D AlertTexture()
+    {
+        if (alertTexture != null) return alertTexture;
+        const int n = 64;
+        var tex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+        tex.wrapMode = TextureWrapMode.Clamp;
+        tex.filterMode = FilterMode.Bilinear;
+        for (int py = 0; py < n; py++)
+        {
+            for (int px = 0; px < n; px++)
+            {
+                float u = px / (n - 1f);
+                float v = py / (n - 1f);   // 0 at the bottom
+                // apex (0.5, 0.94), base from (0.03, 0.08) to (0.97, 0.08)
+                float half = 0.47f * Mathf.Clamp01((0.94f - v) / 0.86f);
+                bool inside = v >= 0.08f && v <= 0.94f && Mathf.Abs(u - 0.5f) <= half;
+                tex.SetPixel(px, py, inside ? Color.white : new Color(1f, 1f, 1f, 0f));
+            }
+        }
+        tex.Apply();
+        alertTexture = tex;
+        return tex;
     }
 
     static Texture2D heartTexture;

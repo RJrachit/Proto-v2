@@ -244,7 +244,7 @@ public partial class SegmentSpawner : MonoBehaviour
         // the tutorial road: stretches 1..4 each get one scripted customer (lawn, doormat, mailbox, hoop), the rest is plain scenery
         int tutK = Mathf.RoundToInt(startZ / segmentLength), tutStep = -1;
         Lot tutPick = null;
-        if (Tutorial.Active && tutK >= 1 && tutK <= 3) { tutStep = tutK - 1; tutPick = PickTutorialLot(Tutorial.SideOfStep(tutStep)); }
+        if (Tutorial.Active && tutK >= 1 && tutK <= 3) { tutStep = tutK - 1; tutPick = PickTutorialLot(Tutorial.SideOfStep(tutStep)); if (tutPick != null && tutStep == 1) FitTutorialTower(tutPick); }
 
         for (int li = 0; li < lots.Count; li++)
         {
@@ -296,13 +296,21 @@ public partial class SegmentSpawner : MonoBehaviour
                     groundBlock = fortRoll < walledP ? 1 : (fortRoll < walledP + siteP ? 2 : 0);
                 if (groundBlock == 2 && wantFloors < 2) wantFloors = 2;   // a building site has no ground floor: it needs an upper one
             }
+            lot.house.WantLayout1 = null; lot.house.WantLayout2 = null;   // (the usual balconies, unless the tutorial tower says otherwise)
             if (tutorialLot)
             {
-                // stretch 1: a plain one-floor house; 2: two floors, one balcony; 3: two floors, two balconies and the building's hoop
+                // stretch 1: a plain one-floor house; 2: the longest house there is, three storeys: two balconies on the middle floor (the hoop over the near one), two on the top (not stacked);
+                // 3: two floors, two balconies and the building's hoop
                 balcony = tutStep >= 1;
-                wantFloors = tutStep >= 1 ? 2 : 1;
-                wantB1 = tutStep >= 2 ? 2 : 1;
-                wantH = tutStep >= 2;
+                wantFloors = tutStep == 1 ? 3 : (tutStep >= 2 ? 2 : 1);
+                wantB1 = tutStep >= 1 ? 2 : 1;
+                wantB2 = tutStep == 1 ? 2 : 1;
+                wantH = tutStep >= 1;
+                if (tutStep == 1)
+                {
+                    lot.house.WantLayout1 = TowerMiddle;   // the middle floor: two balconies at the far end (hoop over the near one); the top floor: the target at the bike's end, a narrow one beside it
+                    lot.house.WantLayout2 = TowerTop;
+                }
             }
             lot.house.BeachEdge = lot.beach ? lot.edge : 0;
             // how close to either end of its beach this lot is (0 = deep in the middle, 1 = at an end): the vegetation grows thicker towards the ends

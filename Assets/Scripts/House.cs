@@ -32,6 +32,7 @@ public partial class House : MonoBehaviour
     public static readonly List<House> Customers = new List<House>();
 
     public int side;                    // -1 = left of the road, +1 = right
+    public float LotLength;             // how long the lot is along the road (set by Setup; the tutorial outlines the floors by it)
 
     // ---- parts (assigned by SegmentSpawner) ----
     public Transform bodyT, bandT, roofT, frontDoorT, pathVisualT, lawnT;
@@ -134,6 +135,7 @@ public partial class House : MonoBehaviour
                       Yard yard, bool tree, bool porch, bool table, bool tableItems, bool park, bool parking, bool court, int destruct, bool walksAround, bool allowMailbox, bool allowBalcony, bool allowWindow, bool allowBlocker, bool beach, Color bodyColor)
     {
         gameObject.SetActive(true);
+        LotLength = length;
         blobN = 0;
         lampN = 0;
         doorLamp = -1;
@@ -516,11 +518,11 @@ public partial class House : MonoBehaviour
         {
             if (hoopUsed) { gm.CountHit(); return; }
             hoopUsed = true;
-            gm.Bonus(GameConfig.PointsHoopBonus, "Dunkkkk! +", pos);
+            gm.Bonus(GameConfig.PointsHoopBonus, "Swish! +", pos);
             return;
         }
 
-        if (resolved) { gm.ShowToast("Already handled"); return; }
+        if (resolved) return;
         if (!Subscriber) return;
 
         // on a beach, the path beside the sunbather's towel scores like the doormat (and the picnic blanket already does)
@@ -528,15 +530,16 @@ public partial class House : MonoBehaviour
 
         // Anything on the ground (lawn, path, doormat, mailbox, hoop...) serves the ground floor, once. A building site has none.
         if (!groundFloor) return;
-        if (groundDone) { gm.ShowToast(floors > 1 ? "Ground floor already done" : "Already handled"); return; }
+        if (groundDone) return;
         groundDone = true;
+        Tutorial.OnGroundCleared();
 
         if (kind == HouseTarget.Kind.Mailbox) flagUp = true;
         if (kind == HouseTarget.Kind.Lifeguard) lgAnimT = 0f;
         bool all = AllServed();
-        if (all) Finish(Gold); else MarkGroundServed();
+        if (all) { Finish(Gold); gm.AddRunCoins(floors); } else MarkGroundServed();   // a house cleared: one coin per storey
         UpdatePips();
-        gm.Delivered(Scoring.Points(kind, snapped), pos, kind, all, LeftSuffix(all));
+        gm.Delivered(Scoring.Points(kind, snapped), pos, kind, all);
     }
 
     // Marks the house as done: hides the marker and removes it from the aim-assist list.

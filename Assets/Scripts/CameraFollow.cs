@@ -177,8 +177,10 @@ public class CameraFollow : MonoBehaviour
 
         float fov = firstPerson ? Fov(fpFov, fpMinHorizontalFov, fpMaxVerticalFov)
                                 : Fov(baseFov, minHorizontalFov, maxVerticalFov);
-        // a little zoom while aiming in slow-mo (real time, so it stays smooth while the game slows); eases out when you let go
-        bool aimingSlow = gm != null && gm.Playing && GameTime.Aim < 0.999f;
+        // a little zoom while aiming (real time, so it stays smooth while the game slows); eases out when you let go.
+        // It follows the pull itself, NOT the slow-mo meter: a zoom that came and went with the meter made the same pull look longer or
+        // shorter on screen (the zoom magnifies the gap between the bike and the landing ball), which read as the throw changing.
+        bool aimingSlow = gm != null && gm.Playing && PaperThrower.Dragging;
         // the zoom is smoothed by its own spring (quick in, a slower glide out) so it never jumps when you let go
         float wantZoom = aimingSlow ? Mathf.Lerp(aimZoomLight, aimZoomFull, Mathf.Clamp01(PaperThrower.AimPower)) : 0f;
         if (!aimingSlow) wantZoom = 0f;

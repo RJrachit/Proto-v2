@@ -133,10 +133,21 @@ public class Paper : MonoBehaviour
 
     // ---- bouncing and landing ----
 
+    // Throw check for the Console: where the arc should end (plain physics) against where the paper first touched something.
+    public Vector3 ThrowFrom;
+    public float ThrowPredicted = -1f;
+    public string ThrowNote = "";
+
     void OnCollisionEnter(Collision collision)
     {
         if (done || rb == null) return;
         EndBoost();
+        if (ThrowPredicted >= 0f)
+        {
+            Vector3 d = transform.position - ThrowFrom; d.y = 0f;
+            Debug.Log("[Throw] predicted " + ThrowPredicted.ToString("0.0") + " m, first touch " + d.magnitude.ToString("0.0") + " m (" + collision.collider.name + ") " + ThrowNote);
+            ThrowPredicted = -1f;
+        }
 
         ContactPoint contact = collision.GetContact(0);
         Vector3 n = contact.normal;
@@ -173,6 +184,12 @@ public class Paper : MonoBehaviour
             if (floorHouse != null && floorHouse.TouchBalconyFloor(collision.collider, contact.point)) { balconyScored = true; hitDestructible = true; }
         }
 
+        if (bank != null && bank.guideRing != null && Tutorial.HoopFocus && bank.guideRing.gameObject.activeInHierarchy)
+        {
+            GuideIntoRing(bank.guideRing);   // (the tutorial's basket shot only: any touch of the board drops the paper into the ring)
+            return;
+        }
+
         if (bank != null)
         {
             // A window breaks only when the paper actually hits it, at the moment of impact (not when it flies back off the wall).
@@ -199,6 +216,18 @@ public class Paper : MonoBehaviour
             }
             landed = true;
         }
+    }
+
+    // The tutorial's basket shot: a paper that touches the backboard is sent in a short arc to the middle of the ring and drops through it.
+    void GuideIntoRing(HouseTarget ring)
+    {
+        Vector3 c = ring.transform.position;
+        Vector3 target = new Vector3(c.x, c.y + 0.1f, c.z);
+        Vector3 p = transform.position;
+        const float T = 0.3f;
+        float g = -Physics.gravity.y;
+        rb.linearVelocity = new Vector3((target.x - p.x) / T, (target.y - p.y) / T + 0.5f * g * T, (target.z - p.z) / T);
+        rb.angularVelocity *= 0.3f;
     }
 
     void Bounce(Vector3 n, float restitution, float tangentKeep)
@@ -343,6 +372,7 @@ public class Paper : MonoBehaviour
 
         if (best != null) best.OnPaperHit(transform.position, Scoring.Snaps(best.kind));
         else if (!hitDestructible && !scoredInAir) GameManager.Instance.PaperMissed(transform.position);
+        if (best == null && !scoredInAir && !balconyScored) Tutorial.OnPaperFailed();   // (the tutorial's near-shot lesson starts again)
 
         GameManager.Instance.PaperDone();
         Destroy(gameObject, best != null ? 1.2f : 0.8f);   // it lies where it landed for a moment

@@ -12,4 +12,7 @@ public class BankSurface : MonoBehaviour
 
     [Tooltip("A basketball backboard or ring. Hitting these before going in the ring does not make a trick shot (a bounce off anything else does).")]
     public bool hoopPart;
+
+    [Tooltip("The tutorial's basket shot only: a paper that touches this backboard is guided into this ring (Paper reads it). Null everywhere else.")]
+    public HouseTarget guideRing;
 }

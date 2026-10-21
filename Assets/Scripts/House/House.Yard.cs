@@ -77,8 +77,8 @@ public partial class House
                 {
                     float a = k * 45f * Mathf.Deg2Rad;
                     Cube(cubeN++, new Vector3(ringX + Mathf.Cos(a) * 0.45f, ringY, hz + Mathf.Sin(a) * 0.45f),
-                         new Vector3(0.08f, 0.08f, 0.38f), new Color(1.00f, 0.85f, 0.20f), new Vector3(0f, -k * 45f, 0f));
-                    if (propCubes != null && cubeN - 1 < propCubes.Length) SoftRim(propCubes[cubeN - 1]);   // solid but dead, like every hoop ring
+                         new Vector3(0.10f, 0.10f, 0.38f), Prim.RimOrange, new Vector3(0f, -k * 45f, 0f));
+                    if (propCubes != null && cubeN - 1 < propCubes.Length) { SoftRim(propCubes[cubeN - 1]); GlowRim(propCubes[cubeN - 1]); }   // solid but dead, like every hoop ring; orange and bright
                 }
                 for (int k = 0; k < 4; k++)
                 {

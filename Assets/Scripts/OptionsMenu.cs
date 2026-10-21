@@ -142,10 +142,15 @@ public class OptionsMenu : MonoBehaviour
         GUILayout.Label("OPTIONS", titleStyle);
         GUILayout.FlexibleSpace();
         var gmo = GameManager.Instance;
-        if (gmo != null && gmo.State == GameManager.RunState.Menu && GUILayout.Button("How to play", tabBtn, GUILayout.Width(170), GUILayout.Height(44)))
+        if (gmo != null && gmo.State == GameManager.RunState.Menu)
         {
-            pendingClose = true;
-            pendingTutorial = true;
+            bool howTo = GUILayout.Button("How to play", tabBtn, GUILayout.Width(170), GUILayout.Height(44));
+            UiTheme.ShineLast(false);
+            if (howTo)
+            {
+                pendingClose = true;
+                pendingTutorial = true;
+            }
         }
         GUILayout.EndHorizontal();
         GUILayout.Space(4f);
@@ -201,9 +206,16 @@ public class OptionsMenu : MonoBehaviour
 
         GUILayout.FlexibleSpace();
         GUILayout.BeginHorizontal();
-        if (tab != 4 && GUILayout.Button("Reset colours", btn, GUILayout.Height(54))) GameConfig.ApplyColorPreset(0);
+        if (tab != 4)
+        {
+            bool reset = GUILayout.Button("Reset colours", btn, GUILayout.Height(54));
+            UiTheme.ShineLast(false);
+            if (reset) GameConfig.ApplyColorPreset(0);
+        }
         var doneStyle = new GUIStyle(UiTheme.PrimaryStyle) { fontSize = 26 };
-        if (GUILayout.Button("Done", doneStyle, GUILayout.Height(58))) pendingClose = true;
+        bool done = GUILayout.Button("Done", doneStyle, GUILayout.Height(58));
+        UiTheme.ShineLast(true);
+        if (done) pendingClose = true;
         GUILayout.EndHorizontal();
         GUILayout.EndArea();
 

@@ -42,16 +42,10 @@ public class RoadHazard : MonoBehaviour
 
         float dz = transform.position.z - bike.transform.position.z;
 
-        if (dz > 0f && dz < 30f && PlayerPrefs.GetInt("HintBell", 0) == 0)
-        {
-            PlayerPrefs.SetInt("HintBell", 1);
-            gm.ShowToast("Cow ahead! Tap to ring the bell", 3f);
-        }
-
         if (!resolved && Mathf.Abs(dz) < 1.4f)
         {
             resolved = true;
-            gm.HitHazard("Hit a cow!", transform.position);
+            gm.HitHazard(null, transform.position);
             Flee();
         }
     }

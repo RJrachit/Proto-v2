@@ -13,7 +13,24 @@ public partial class House
         bool intro = Tutorial.IntroGlow && NightLights.Available;   // the tutorial's first step shows the zones glowing hard, by day too
         float day = DayFactor();   // 1 in daylight, 0 at night: the zones need a stronger shimmer in the sun
         float k = intro ? 0.30f + 0.60f * pulse : (0.10f + 0.35f * pulse) * (1f + 0.5f * day);   // medium strength (more by day)
+        // the tutorial's board glows orange, breathing gently
+        if (boardGlowR != null && boardGlowR.gameObject.activeInHierarchy)
+        {
+            Color bc = Color.Lerp(new Color(1.00f, 0.86f, 0.55f), new Color(1.00f, 0.62f, 0.20f), pulse);   // (bright: a pale hot orange that breathes)
+            var bm = boardGlowR.material;
+            bm.color = bc;
+            if (bm.HasProperty("_BaseColor")) bm.SetColor("_BaseColor", bc);
+        }
+        if (boardHalo != null && boardHalo.gameObject.activeSelf)
+        {
+            boardHaloMat.color = new Color(1.00f, 0.55f, 0.10f, 0.90f + 0.10f * pulse);
+            boardHalo.localScale = new Vector3(HaloW * (1f + 0.05f * pulse), HaloH * (1f + 0.05f * pulse), 1f);
+            boardHalo2.localScale = new Vector3(HaloW * 0.72f * (1f + 0.05f * pulse), HaloH * 0.72f * (1f + 0.05f * pulse), 1f);
+        }
         // (what is already served stays gold and does not shimmer: the ground floor, and each balcony that was hit)
+        if (HoopFocusHere && balconies != null)
+            for (int i = 0; i < balconies.Length; i++)
+                if (balconies[i].on && !balconies[i].hit && balconies[i].slabR != null) balconies[i].slabR.material.color = GameConfig.PadColor;   // (the basket shot: balconies stay plain)
         if (!groundDone)
         {
             GrassShimmer(k);   // the lawn's grass itself brightens and fades (nothing glows under it)
@@ -113,7 +130,7 @@ public partial class House
     bool BalconyOpen(int i)
     {
         var b = balconies != null && i >= 0 && i < balconies.Length ? balconies[i] : null;
-        return b != null && b.on && !b.hit && !floorDone[b.floor] && b.slabR != null;
+        return b != null && b.on && !b.hit && !floorDone[b.floor] && b.slabR != null && !HoopFocusHere;
     }
 
     static Texture2D BeamTex()

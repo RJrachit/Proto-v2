@@ -55,6 +55,7 @@ public class PaperThrower : MonoBehaviour
     LineRenderer line;
     public static float AimPower;
     public static bool AimActive;     // a valid pull is in progress
+    public static bool Dragging;      // the finger is down and pulling (with or without slow-mo left)
     public static Vector3 AimPoint;   // where the previewed arc ends (the camera zooms towards it)   // how hard the current pull is (0..1), read by the camera for its aim zoom
     Transform landingOrb;      // glowing ball where the previewed arc ends
     Renderer landingOrbR;
@@ -77,6 +78,8 @@ public class PaperThrower : MonoBehaviour
     void Awake()
     {
         // the pull shape comes from GameConfig, not from values saved in the scene
+        try { GameConfig.SlingshotStyle = PlayerPrefs.GetInt("ctl_sling", GameConfig.SlingshotStyle ? 1 : 0) == 1; } catch (System.Exception) { }   // the control choice from the dev menu
+        slingshotStyle = GameConfig.SlingshotStyle;
         launchAngleLight = GameConfig.LaunchAngleLight;
         launchAngleFull = GameConfig.LaunchAngleFull;
         powerCurve = GameConfig.PowerCurve;
@@ -148,6 +151,7 @@ public class PaperThrower : MonoBehaviour
     {
         AimPower = 0f;
         AimActive = false;
+        Dragging = false;
         GameTime.Aim = 1f;
         GameTime.Apply();
     }
@@ -159,7 +163,7 @@ public class PaperThrower : MonoBehaviour
 
         // the moment rain starts (or a run begins in the rain) the player is told that throws now fall short
         bool rainNow = RainPenaltyOn;
-        if (rainNow && !wasRaining) gm.ShowToast("Rain! Wet papers fall " + Mathf.RoundToInt(GameConfig.RainThrowPenalty * 100f) + "% short", 4f);
+        if (rainNow && !wasRaining) gm.ShowToast("Rain! Throws fall short.", 4f);
         wasRaining = rainNow;
 
         if (!aiming)
@@ -178,6 +182,7 @@ public class PaperThrower : MonoBehaviour
 
         Vector2 pos = Input.mousePosition;
         dragging = (pos - startPos).magnitude > RefSize * tapMaxMove;
+        Dragging = dragging;
 
         bool valid = false;
         float power = 0f;
@@ -211,7 +216,11 @@ public class PaperThrower : MonoBehaviour
         if (Input.GetMouseButtonUp(0))
         {
             bool tap = !dragging && Time.unscaledTime - pressTime < tapMaxSeconds;
-            if (dragging && valid)
+            if (dragging && valid && !Tutorial.AllowRelease(pos))
+            {
+                // the tutorial's near-shot lesson: the pull must end in the circle, so this one is not thrown
+            }
+            else if (dragging && valid)
             {
                 bool v2; float p2;
                 Throw(ComputeVelocity(pos, out v2, out p2, RainPenaltyOn));   // the throw itself carries the rain penalty; the preview above did not
@@ -223,7 +232,9 @@ public class PaperThrower : MonoBehaviour
 
     // The longest pull (in pixels) that still counts, in the direction the finger is pulling: the comfortable pull (fullPowerDrag), or less when
     // the screen edge is closer than that, so full power can always be reached without the finger leaving the screen.
-    float PullCap(Vector2 dir)
+    float PullCap(Vector2 dir) { return PullCapFrom(startPos, dir); }
+
+    float PullCapFrom(Vector2 start, Vector2 dir)
     {
         float cap = fullPowerDrag * RefSize;
         if (dir.sqrMagnitude < 1e-6f) return cap;
@@ -231,10 +242,10 @@ public class PaperThrower : MonoBehaviour
         float margin = RefSize * 0.04f;
         Rect safe = Screen.safeArea;
         float room = float.MaxValue;
-        if (dir.x > 0.001f) room = Mathf.Min(room, (safe.xMax - margin - startPos.x) / dir.x);
-        else if (dir.x < -0.001f) room = Mathf.Min(room, (safe.xMin + margin - startPos.x) / dir.x);
-        if (dir.y > 0.001f) room = Mathf.Min(room, (safe.yMax - margin - startPos.y) / dir.y);
-        else if (dir.y < -0.001f) room = Mathf.Min(room, (safe.yMin + margin - startPos.y) / dir.y);
+        if (dir.x > 0.001f) room = Mathf.Min(room, (safe.xMax - margin - start.x) / dir.x);
+        else if (dir.x < -0.001f) room = Mathf.Min(room, (safe.xMin + margin - start.x) / dir.x);
+        if (dir.y > 0.001f) room = Mathf.Min(room, (safe.yMax - margin - start.y) / dir.y);
+        else if (dir.y < -0.001f) room = Mathf.Min(room, (safe.yMin + margin - start.y) / dir.y);
         float floor = Mathf.Min(cap, Mathf.Max(MinCapFraction(), deadZone + 0.05f) * RefSize);
         return Mathf.Clamp(room, floor, cap);
     }
@@ -268,6 +279,30 @@ public class PaperThrower : MonoBehaviour
                   + Vector3.up * speed * Mathf.Sin(th);
         if (valid && assist && !Tutorial.Active) v = ApplyAssist(v);   // the tutorial teaches the plain throw
         return v;
+    }
+
+    // ---- for the tutorial's lessons (they work out where a pull has to end) ----
+
+    // Where a paper leaves the hand.
+    public Vector3 ThrowPoint { get { return ThrowOrigin; } }
+
+    // The launch velocity for a throw of the given power (0..1) along a ground heading, made exactly as ComputeVelocity makes it (dry, no assist).
+    public Vector3 VelocityFor(float power, Vector3 heading)
+    {
+        heading.y = 0f;
+        heading = heading.sqrMagnitude > 0.0001f ? heading.normalized : transform.forward;
+        float distance = Mathf.Lerp(minDistance, maxDistance, power);
+        float th = Mathf.Lerp(launchAngleLight, launchAngleFull, power) * Mathf.Deg2Rad;
+        float speed = SpeedForDistance(distance, th);
+        return bike.Velocity * forwardInherit + heading * speed * Mathf.Cos(th) + Vector3.up * speed * Mathf.Sin(th);
+    }
+
+    // The pull length (as a fraction of the short screen edge) that gives this power, for a drag starting at startPx (y up) in direction dragDir.
+    public float PullFractionFor(float power, Vector2 startPx, Vector2 dragDir)
+    {
+        float capFraction = PullCapFrom(startPx, dragDir) / RefSize;
+        float t = Mathf.Pow(Mathf.Clamp01(power), 1f / Mathf.Max(0.1f, powerCurve));
+        return deadZone + t * (capFraction - deadZone);
     }
 
     // Launch speed so a paper thrown from ThrowOrigin's height at angle th lands `distance` away on the ground.
@@ -425,7 +460,7 @@ public class PaperThrower : MonoBehaviour
     void Throw(Vector3 v)
     {
         var gm = GameManager.Instance;
-        if (!gm.TryUsePaper()) { gm.ShowToast("No papers!"); return; }
+        if (!gm.TryUsePaper()) return;
 
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = "Paper";
@@ -442,6 +477,16 @@ public class PaperThrower : MonoBehaviour
         else rb.AddForce(v, ForceMode.VelocityChange);
         rb.AddTorque(Random.insideUnitSphere * 6f, ForceMode.VelocityChange);
 
+        // Console check: how far this arc should reach on plain physics (the same as the aim line), and the time state it was thrown in
+        {
+            Vector3 q = ThrowOrigin, w = v;
+            for (int k = 0; k < 200 && q.y > 0.05f; k++) { w += Physics.gravity * 0.02f; q += w * 0.02f; }
+            Vector3 flat = q - ThrowOrigin; flat.y = 0f;
+            paper.ThrowFrom = ThrowOrigin;
+            paper.ThrowPredicted = flat.magnitude;
+            paper.ThrowNote = "[timeScale " + Time.timeScale.ToString("0.00") + ", aim " + GameTime.Aim.ToString("0.00") + ", slow-mo left " + gm.SlowMoMeter.ToString("0.00") + "]";
+        }
+
         Tutorial.OnThrow();
         Rider.LastThrowTime = Time.time;   // the rider's arm swings to the side the paper flies to
         Rider.LastThrowSide = Vector3.Dot(v, transform.right) >= 0f ? 1f : -1f;
@@ -455,6 +500,7 @@ public class PaperThrower : MonoBehaviour
         if (!aiming) return;
         aiming = false;
         dragging = false;
+        Dragging = false;
         AimPower = 0f;
         AimActive = false;
         SetLines(false);

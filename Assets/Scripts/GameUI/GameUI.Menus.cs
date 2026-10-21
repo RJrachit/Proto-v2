@@ -12,10 +12,16 @@ public partial class GameUI
         var r = new Rect(rightX - 150f, y, 150f, 44f);
         UiTheme.Shadow(r, 4f);
         UiTheme.Pill(r, new Color(0.05f, 0.07f, 0.14f, 0.88f));
-        var coin = new Rect(r.x + 8f, r.y + 8f, 28f, 28f);
-        UiTheme.Pill(coin, new Color(0.78f, 0.52f, 0.10f));
-        UiTheme.Pill(new Rect(coin.x + 3f, coin.y + 2f, 22f, 22f), UiTheme.Gold);
+        DrawCoinIcon(new Rect(r.x + 8f, r.y + 8f, 28f, 28f));
         GUI.Label(new Rect(r.x + 40f, r.y, r.width - 50f, r.height), Progress.Coins.ToString(), chipText);
+    }
+
+    // a gold coin
+    static void DrawCoinIcon(Rect coin)
+    {
+        float k = coin.width / 28f;
+        UiTheme.Pill(coin, new Color(0.78f, 0.52f, 0.10f));
+        UiTheme.Pill(new Rect(coin.x + 3f * k, coin.y + 2f * k, 22f * k, 22f * k), UiTheme.Gold);
     }
 
     // the logo: the newspaper emblem with the game's name; returns the y just below it
@@ -29,8 +35,7 @@ public partial class GameUI
         float w = 700f;
         UiTheme.Label(new Rect(cx - w * 0.5f, y + 128f * k, w, 100f * k), "POLY", titleGold, 3f);
         UiTheme.Label(new Rect(cx - w * 0.5f, y + 208f * k, w, 84f * k), "PARCEL", titleCream, 3f);
-        GUI.Label(new Rect(cx - 250f, y + 288f * k, 500f, 30f), "Deliver the news. Don't miss a door.", tagline);
-        return y + 322f * k;
+        return y + 300f * k;
     }
 
     static float Pulse(float amount, float speed) { return 1f + amount * Mathf.Sin(Time.unscaledTime * speed); }
@@ -45,17 +50,14 @@ public partial class GameUI
 
     void DrawPause(GameManager gm, float w, float h)
     {
-        UiTheme.Scrim(w, h, 1f);
-        GUI.color = new Color(0f, 0f, 0f, 0.28f);
+        // un-pausing: no countdown, the pause screen just fades away and the game is back
+        float fade = gm.Resuming ? Mathf.Clamp01(gm.ResumeIn / Mathf.Max(0.05f, GameConfig.ResumeCountdown)) : 1f;
+        UiTheme.Scrim(w, h, fade);
+        GUI.color = new Color(0f, 0f, 0f, 0.28f * fade);
         GUI.DrawTexture(new Rect(0, 0, w, h), Texture2D.whiteTexture);
         GUI.color = Color.white;
 
-        if (gm.Resuming)
-        {
-            var num = T(170, TextAnchor.MiddleCenter, UiTheme.Gold);
-            UiTheme.Label(new Rect(0, h * 0.5f - 130f, w, 260), Mathf.Max(1, Mathf.CeilToInt(gm.ResumeIn)).ToString(), num, 4f);
-            return;
-        }
+        if (gm.Resuming) return;
 
         float cw = Mathf.Min(380f, w - 40f);
         float bh = 70f, gap = 12f;
@@ -128,34 +130,11 @@ public partial class GameUI
         float half = (colW - 12f) * 0.5f;
         if (UiTheme.Secondary(new Rect(x0, y, half, 66f), "Shop", 28)) panel = Panel.Shop;
         if (UiTheme.Secondary(new Rect(x0 + half + 12f, y, half, 66f), "Options", 28)) OptionsMenu.Show();
-        y += 66f + 22f;
+        y += 66f + 14f;
 
-        // today's missions
-        var missions = Progress.TodayMissions();
-        float rowH = 54f;
-        var card = new Rect(x0, y, colW, 56f + missions.Length * rowH + 6f);
-        UiTheme.Card(card);
-        GUI.Label(new Rect(card.x + 22f, card.y + 10f, card.width - 44f, 36f), "TODAY'S MISSIONS", heading);
-        float my = card.y + 52f;
-        foreach (var m in missions)
-        {
-            bool done = Progress.Done(m);
-            int have = Mathf.Min(Progress.Count(m), m.target);
-            GUI.Label(new Rect(card.x + 22f, my, card.width - 120f, 26f), m.text, rowText);
-            var badge = new Rect(card.xMax - 92f, my + 1f, 70f, 26f);
-            if (done)
-            {
-                UiTheme.Pill(badge, UiTheme.Mint);
-                GUI.Label(badge, "DONE", T(16, TextAnchor.MiddleCenter, UiTheme.Navy));
-            }
-            else
-            {
-                UiTheme.Pill(badge, new Color(1f, 1f, 1f, 0.12f));
-                GUI.Label(badge, "+" + m.reward, T(17, TextAnchor.MiddleCenter, UiTheme.Gold));
-            }
-            UiTheme.Bar(new Rect(card.x + 22f, my + 31f, card.width - 44f, 9f), (float)have / Mathf.Max(1, m.target), done ? UiTheme.Mint : UiTheme.Gold);
-            my += rowH;
-        }
+        // How to play (the home page only): plays the tutorial again
+        if (UiTheme.Secondary(new Rect(x0, y, colW, 62f), "How to play", 28)) gm.StartTutorial();
+        y += 62f + 22f;
 
         // best score: top-left in portrait (the coins are top-right), under the logo in landscape
         float by = portrait ? topPad : h - 62f - insetB;
@@ -163,7 +142,7 @@ public partial class GameUI
         var best = new Rect(bx - 105f, by, 210f, 44f);
         UiTheme.Shadow(best, 4f);
         UiTheme.Pill(best, new Color(0.05f, 0.07f, 0.14f, 0.88f));
-        GUI.Label(new Rect(best.x, best.y, best.width, best.height), "Best score  " + gm.HighScore, T(22, TextAnchor.MiddleCenter, UiTheme.Gold));
+        GUI.Label(new Rect(best.x, best.y, best.width, best.height), "Best Score  " + gm.HighScore, T(22, TextAnchor.MiddleCenter, UiTheme.Gold));
     }
 
     void DrawShop(GameManager gm, float w, float h, float topPad)
@@ -229,7 +208,7 @@ public partial class GameUI
         var card = new Rect((w - cw) * 0.5f, Mathf.Max(24f + insetT, (h - cardH) * 0.5f), cw, cardH);
         UiTheme.Card(card);
 
-        UiTheme.Label(new Rect(card.x, card.y + 14f, card.width, 70f), "GAME OVER", T(52, TextAnchor.MiddleCenter, UiTheme.Cream), 2.5f);
+        UiTheme.Label(new Rect(card.x, card.y + 14f, card.width, 70f), "You're FIRED", T(52, TextAnchor.MiddleCenter, UiTheme.Cream), 2.5f);
         if (!string.IsNullOrEmpty(gm.GameOverReason))
             GUI.Label(new Rect(card.x + 16f, card.y + 82f, card.width - 32f, 28f), gm.GameOverReason, T(19, TextAnchor.MiddleCenter, UiTheme.Dim));
 
@@ -245,7 +224,7 @@ public partial class GameUI
         else
         {
             UiTheme.Pill(badge, new Color(1f, 1f, 1f, 0.12f));
-            GUI.Label(badge, "Best " + gm.HighScore, T(20, TextAnchor.MiddleCenter, UiTheme.Cream));
+            GUI.Label(badge, "Best Score " + gm.HighScore, T(20, TextAnchor.MiddleCenter, UiTheme.Cream));
         }
 
         // three small stats
@@ -260,7 +239,12 @@ public partial class GameUI
             GUI.Label(new Rect(cell.x, cell.y + 8f, cell.width, 18f), names[i], statLabel);
             GUI.Label(new Rect(cell.x, cell.y + 26f, cell.width, 40f), vals[i], statValue);
         }
-        GUI.Label(new Rect(card.x, sy + 78f, card.width, 24f), "Total coins " + Progress.Coins, rowSmall);
+        // the wallet: the total, then a coin
+        string wallet = Progress.Coins.ToString();
+        float walletW = rowSmall.CalcSize(new GUIContent(wallet)).x + 4f;
+        float walletX = card.center.x - (walletW + 6f + 22f) * 0.5f;
+        GUI.Label(new Rect(walletX, sy + 78f, walletW, 24f), wallet, rowSmall);
+        DrawCoinIcon(new Rect(walletX + walletW + 6f, sy + 79f, 22f, 22f));
 
         // buttons
         float by = card.yMax - 98f;
@@ -269,7 +253,7 @@ public partial class GameUI
             // stacked
             float bw = card.width - 44f;
             if (UiTheme.Primary(new Rect(card.x + 22f, by - 82f, bw, 74f), "Play again", 34)) gm.StartRun(gm.DailyMode);
-            if (UiTheme.Secondary(new Rect(card.x + 22f, by, bw, 66f), "Menu", 28))
+            if (UiTheme.Secondary(new Rect(card.x + 22f, by, bw, 66f), "Home", 28))
             {
                 panel = Panel.Main;
                 gm.GoToMenu();
@@ -279,7 +263,7 @@ public partial class GameUI
         {
             float bw = (card.width - 44f - 14f) * 0.5f;
             if (UiTheme.Primary(new Rect(card.x + 22f, by - 8f, bw, 76f), "Play again", 32)) gm.StartRun(gm.DailyMode);
-            if (UiTheme.Secondary(new Rect(card.x + 22f + bw + 14f, by - 8f, bw, 76f), "Menu", 30))
+            if (UiTheme.Secondary(new Rect(card.x + 22f + bw + 14f, by - 8f, bw, 76f), "Home", 30))
             {
                 panel = Panel.Main;
                 gm.GoToMenu();

@@ -108,6 +108,7 @@ public class DevMenu : MonoBehaviour
 
         if (!open)
         {
+            if (Tutorial.Modal) { blockRect = new Rect(0f, 0f, 0f, 0f); return; }   // (no DEV button over the pull lesson)
             float insetT = (Screen.height - Screen.safeArea.yMax) / scale;
             var r = new Rect(w * 0.5f - 40f, 24f + insetT, 80f, 34f);
             blockRect = new Rect(r.x * scale, r.y * scale, r.width * scale, r.height * scale);
@@ -182,6 +183,12 @@ public class DevMenu : MonoBehaviour
         thrower.launchAngleFull = GameConfig.LaunchAngleFull = Slider("Angle, full pull", thrower.launchAngleFull, 30f, 80f, "0");
         thrower.fullPowerDrag = GameConfig.FullPowerDrag = Slider("Full-power pull", thrower.fullPowerDrag, 0.15f, 0.6f, "0.00");
         thrower.powerCurve = GameConfig.PowerCurve = Slider("Power curve", thrower.powerCurve, 0.5f, 2f, "0.00");
+        bool sling = Toggle("Controls: pull back to throw (off = drag toward the target)", thrower.slingshotStyle);
+        if (sling != thrower.slingshotStyle)
+        {
+            thrower.slingshotStyle = GameConfig.SlingshotStyle = sling;
+            try { PlayerPrefs.SetInt("ctl_sling", sling ? 1 : 0); PlayerPrefs.Save(); } catch (System.Exception) { }   // remembered between runs
+        }
         GameConfig.PreviewShare = Slider("Aim guide shown", GameConfig.PreviewShare, 0.1f, 1f, "0.00");   // share of the arc drawn: 0.60 = 60%
         GameConfig.ThrowBoost = Slider("Throw speed-up at start (1 = off)", GameConfig.ThrowBoost, 1f, 2.5f, "0.00");   // same path, flown faster at first
         GameConfig.ThrowBoostShare = Slider("Speed-up share of the flight", GameConfig.ThrowBoostShare, 0.2f, 0.9f, "0.00");

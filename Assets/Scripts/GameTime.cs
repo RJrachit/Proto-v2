@@ -5,11 +5,12 @@ public static class GameTime
 {
     public static float Aim = 1f;
     public static float Hit = 1f;
+    public static float Lesson = 1f;   // the tutorial's near-shot lesson runs slowed until the first throw
     public static bool Paused = false;
 
     public static void Apply()
     {
-        float s = Mathf.Min(Aim, Hit);
+        float s = Mathf.Min(Aim, Hit, Lesson);
         Time.timeScale = Paused ? 0f : s;
         Time.fixedDeltaTime = 0.02f * Mathf.Max(s, 0.05f);   // keeps physics smooth in slow motion
         AudioListener.pause = Paused;
@@ -19,6 +20,7 @@ public static class GameTime
     {
         Aim = 1f;
         Hit = 1f;
+        Lesson = 1f;
         Paused = false;
         Apply();
     }

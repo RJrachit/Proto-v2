@@ -24,6 +24,7 @@ public partial class House
         t.localPosition = pos;
         t.localEulerAngles = euler;
         t.localScale = scale;
+        if (glowRend.Remove(lotPartR[lotN])) Prim.FixMaterial(lotPartR[lotN]);   // (a part that was a glowing rim is a plain lit part again)
         lotPartR[lotN].material.color = col;
         var c = t.GetComponent<Collider>();
         if (c != null) c.enabled = solid;
@@ -34,6 +35,7 @@ public partial class House
             bs.restitution = isBeach ? GameConfig.BeachBounce : GameConfig.WallBounce;
             bs.tangentKeep = isBeach ? GameConfig.BeachSlideKeep : GameConfig.WallSlideKeep;
             bs.hoopPart = false;
+            bs.guideRing = null;
         }
         t.gameObject.SetActive(true);
         lotN++;
@@ -52,11 +54,15 @@ public partial class House
         propCubes[i].localEulerAngles = euler;
         propCubes[i].localScale = scale;
         propCubes[i].gameObject.SetActive(true);
-        if (propCubeRenderers[i] != null) propCubeRenderers[i].material.color = col;
+        if (propCubeRenderers[i] != null)
+        {
+            if (glowRend.Remove(propCubeRenderers[i])) Prim.FixMaterial(propCubeRenderers[i]);   // (a glowing rim goes back to a plain lit part)
+            propCubeRenderers[i].material.color = col;
+        }
         var cc = propCubes[i].GetComponent<Collider>();      // pooled boxes are reused: solid again until a rim or net claims one
         if (cc != null) cc.enabled = true;
         var bs = propCubes[i].GetComponent<BankSurface>();   // ... and back to wall settings until a board claims one
-        if (bs != null) { bs.restitution = GameConfig.WallBounce; bs.tangentKeep = GameConfig.WallSlideKeep; bs.hoopPart = false; }
+        if (bs != null) { bs.restitution = GameConfig.WallBounce; bs.tangentKeep = GameConfig.WallSlideKeep; bs.hoopPart = false; bs.guideRing = null; }
     }
 
     // A part papers pass through (a hoop's net), the same on every hoop.
@@ -70,6 +76,17 @@ public partial class House
 
     // A basketball backboard is soft: the paper thuds and drops towards the ring.
     static void SoftBoard(Transform t) { SetBank(t, GameConfig.BoardBounce, GameConfig.BoardSlideKeep, true); }
+
+    // Every hoop ring glows orange (see Prim.GlowOrange). The renderers are remembered so a reused part goes back to a plain material.
+    readonly HashSet<Renderer> glowRend = new HashSet<Renderer>();
+
+    void GlowRim(Transform t)
+    {
+        var r = t != null ? t.GetComponent<Renderer>() : null;
+        if (r == null) return;
+        Prim.GlowOrange(r);
+        glowRend.Add(r);
+    }
 
     // A hoop ring is solid but dead (near-zero bounce), the same on every hoop: a paper that lands on it thuds and drops off.
     static void SoftRim(Transform t) { SetBank(t, GameConfig.RimBounce, GameConfig.RimSlideKeep, true); }

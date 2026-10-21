@@ -85,7 +85,7 @@ public partial class Tutorial
         bool any = false;
         labelCount = 0;
         holeCount = 0;
-        if (Active && gm != null && bike != null && gm.Playing && step <= LastHouseStep && gm.Spawner != null && !(step == 0 && introPhase == 0))
+        if (Active && !pullLesson && !nearLesson && !floorsIntro && !hoopIntro && gm != null && bike != null && gm.Playing && step <= LastHouseStep && gm.Spawner != null && !(step == 0 && introPhase == 0))
         {
             var sp = gm.Spawner;
             int k = Mathf.Max(1, step);
@@ -102,8 +102,27 @@ public partial class Tutorial
                 }
                 else
                 {
-                    // the ground floor: every glowing spot on the ground counts, so all of them are circled (until the floor is cleared)
                     int n = 0;
+                    if (step == 2)
+                    {
+                        // the tower: first the top floor's balcony (the long shot), then, once that is cleared, the ground floor
+                        if (groundPhase)
+                        {
+                            if (h.ZoneOpen(h.gardenTarget)) Ring(n++, h.gardenTarget, true, Mathf.Clamp(h.gardenTarget != null ? Mathf.Min(h.gardenTarget.size.x, h.gardenTarget.size.z) * 0.45f : 1f, 0.9f, 1.5f), null);
+                            if (h.ZoneOpen(h.doorstepZone)) Ring(n++, h.doorstepZone, true, 0.95f, null);
+                            if (h.ZoneOpen(h.mailZone)) Ring(n++, h.mailZone, false, 0.8f, null);
+                        }
+                        else if (hoopMode)
+                        {
+                            // the basket shot: no ring round the board; everything else is dimmed instead (see DrawHoopDim)
+                        }
+                        else if (h.balconies != null)
+                            for (int i = 0; i < h.balconies.Length; i++)
+                                if (n == 0 && h.balconies[i].on && h.balconies[i].floor == 2 && h.ZoneOpen(h.balconies[i].zone)) Ring(n++, h.balconies[i].zone, false, 1.3f, null);   // (the target only, not the narrow one beside it)
+                    }
+                    else
+                    {
+                    // the ground floor: every glowing spot on the ground counts, so all of them are circled (until the floor is cleared)
                     // (step 3 is about the hoop alone, so the lawn, doormat and mailbox are not circled there)
                     if (step != 3 && h.ZoneOpen(h.gardenTarget)) Ring(n++, h.gardenTarget, true, Mathf.Clamp(h.gardenTarget != null ? Mathf.Min(h.gardenTarget.size.x, h.gardenTarget.size.z) * 0.45f : 1f, 0.9f, 1.5f), null);
                     if (step != 3 && h.ZoneOpen(h.doorstepZone)) Ring(n++, h.doorstepZone, true, 0.95f, null);
@@ -113,6 +132,7 @@ public partial class Tutorial
                         for (int i = 0; i < h.balconies.Length; i++)
                             if (h.balconies[i].on && h.ZoneOpen(h.balconies[i].zone)) Ring(n++, h.balconies[i].zone, false, 0.9f, null);
                     if (step == 3 && h.floorHoopZ != null && h.floorHoopZ[1] != null && h.ZoneOpen(h.floorHoopZ[1])) Ring(n++, h.floorHoopZ[1], false, 0.8f, null);
+                    }
                 }
             }
         }
@@ -149,7 +169,9 @@ public partial class Tutorial
         if (gm == null || bike == null || !gm.Playing) return;
 
         stepTime += Time.unscaledDeltaTime;
-        bike.Hold = step == 0;   // the intro waits: the bike stands still while the zones are explained
+        PlaceLessonBike(gm, bike);
+        if (floorsIntro || hoopIntro || longLesson) PlanLong();
+        bike.Hold = step == 0 || pullLesson || nearLesson || floorsIntro || hoopIntro || longLesson;   // the intro waits: the bike stands still while the zones are explained
 
         if (transitioning && moveKind == 0 && Time.unscaledTime >= jumpAt) StartFade(1);
         if (moveKind != 0 && Time.unscaledTime - fadeStart >= 0.3f) FinishMove(gm, bike);
@@ -158,6 +180,8 @@ public partial class Tutorial
         // the caption steps move on by themselves after a while (the button is quicker)
         if (step == 4 && stepTime > 7f) Advance(null);
         else if (step == 5 && stepTime > 8f) Advance(null);
+
+        if (step == 2) { UpdateLong(gm, bike); return; }   // the tower step never starts over: it moves on whatever happens
 
         if (IsHouseStep(step))
         {
@@ -171,7 +195,7 @@ public partial class Tutorial
                 bool flying = Paper.All.Count > 0;
                 bool missed = !h.Resolved && bz > hz + 7f;
                 bool pastWrong = wrongKind && bz > hz + 6f;
-                if ((missed || pastWrong) && !flying) Retry(gm, bike, sp, k);
+                if ((missed || pastWrong) && !flying && !afterNear) Retry(gm, bike, sp, k);
             }
         }
     }
@@ -181,6 +205,6 @@ public partial class Tutorial
     {
         retryK = k;
         StartFade(2);
-        gm.ShowToast("Let's try that house again", 2.2f);
+        gm.ShowToast("Try again.", 2.2f);
     }
 }

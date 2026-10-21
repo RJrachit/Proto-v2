@@ -50,6 +50,8 @@ public class GameManager : MonoBehaviour
     public string GameOverReason { get; private set; }
     public string Toast { get; private set; }
     public float ToastUntil { get; private set; }
+    public enum ToastIcon { None, Fire, FireDouble, Alert }   // drawn after the toast text (GameUI.Hud)
+    public ToastIcon ToastIconKind { get; private set; }
 
     // 0..1, drained while aiming in slow motion (see PaperThrower)
     public float SlowMoMeter = 1f;
@@ -142,12 +144,12 @@ public class GameManager : MonoBehaviour
         GameTime.Apply();
     }
 
-    // Starts the 3-2-1 countdown; the run continues when it ends.
+    // Starts the short fade back into the game; the run continues when it ends.
     public void Resume()
     {
         if (!Paused || resuming) return;
         resuming = true;
-        ResumeIn = resumeCountdown;
+        ResumeIn = GameConfig.ResumeCountdown;   // (not the inspector copy: an old scene may still hold 3)
     }
 
     // Ends the current run (awarding its coins) and returns to the main menu.
@@ -168,6 +170,7 @@ public class GameManager : MonoBehaviour
         ResetStats();
         Paper.DestroyAll();
         GameTime.Reset();
+        Tutorial.RestoreLessonTime();   // (the tutorial opens straight into its slowed near shot)
         BikeForward.Instance.ResetRun();
         BikeForward.Instance.BeginTutorial(Tutorial.StartZ, Tutorial.BikeSpeed);
         spawner.ResetRun(20260101);
@@ -233,8 +236,7 @@ public class GameManager : MonoBehaviour
             HighScore = Score;
             PlayerPrefs.SetInt("PaperRunnerHigh", HighScore);
         }
-        RunCoins = Score / 10;
-        if (DailyMode) RunCoins += Progress.RecordDaily(Score);
+        if (DailyMode) RunCoins += Progress.RecordDaily(Score);   // (the run's coins were counted as they were earned)
         Progress.AddCoins(RunCoins);
         PlayerPrefs.Save();
         GameTime.Reset();
@@ -276,11 +278,10 @@ public class GameManager : MonoBehaviour
     {
         if (!Playing) return;
         Papers += n;
-        ShowToast("+" + n + " papers");
     }
 
     // A delivery. A house with several floors pays each part as it is hit; only the part that serves the last floor completes the customer
-    // (completes = true), which is what counts towards the missions; every hit adds 1 to the streak. suffix is added after the points in the toast.
+    // (completes = true); every hit adds 1 to the streak. suffix is added after the points in the toast.
     public void Delivered(int basePoints, Vector3 pos, HouseTarget.Kind kind, bool completes = true, string suffix = null)
     {
         if (!Playing) return;
@@ -289,26 +290,19 @@ public class GameManager : MonoBehaviour
         Score += gained;
         if (HotStreak) SlowMoMeter = Mathf.Min(1f, SlowMoMeter + hotStreakRefill);
 
-        string label = kind == HouseTarget.Kind.Mailbox ? "Perfect! +"
+        string label = kind == HouseTarget.Kind.Mailbox ? "Perfect!! +"
                      : kind == HouseTarget.Kind.Balcony ? "Balcony! +"
                      : kind == HouseTarget.Kind.Door ? "Great! +"
                      : kind == HouseTarget.Kind.Path ? "Great! +"
-                     : kind == HouseTarget.Kind.Table ? "Table! +"
-                     : kind == HouseTarget.Kind.Hoop ? "Dunkkkk! +"
-                     : kind == HouseTarget.Kind.Lifeguard ? "Lifeguard! +"
-                     : kind == HouseTarget.Kind.Palm ? "PALM SHOT! +"
+                     : kind == HouseTarget.Kind.Table ? null   // (a table shows no text)
+                     : kind == HouseTarget.Kind.Hoop ? "Swish! +"
                      : "Nice! +";
-        ShowToast(label + gained + (suffix ?? ""));
-        if (Streak == GameConfig.SuperStreakAt) ShowToast("SUPER HOT STREAK! x" + Multiplier, 2f);
-        else if (Streak == hotStreakAt) ShowToast("HOT STREAK! x" + Multiplier, 2f);
+        if (label != null) ShowToast(label + gained + (suffix ?? ""));
+        StreakToast();
         if (kind == HouseTarget.Kind.Hoop) Juice.HoopBlast(pos, 1f + Mathf.Min(Streak, 12) * 0.06f);
         else Juice.Delivery(pos, 1f + Mathf.Min(Streak, 12) * 0.06f);
 
-        if (Tutorial.Active) { if (completes) Tutorial.OnDelivered(kind); return; }   // (practice deliveries do not count towards missions)
-        if (completes) Progress.AddStat(Progress.Stat.Delivered, 1);
-        if (kind == HouseTarget.Kind.Mailbox) Progress.AddStat(Progress.Stat.Mailbox, 1);
-        if (kind == HouseTarget.Kind.Balcony) Progress.AddStat(Progress.Stat.Balcony, 1);
-        Progress.AddStat(Progress.Stat.BestCombo, Streak);
+        if (Tutorial.Active && completes) Tutorial.OnDelivered(kind);
     }
 
     // A hit that earns no points of its own (a hoop that was already used or cleared, a palm already scored) still adds 1 to the streak.
@@ -316,15 +310,19 @@ public class GameManager : MonoBehaviour
     {
         if (!Playing) return;
         Streak++;
-        if (!Tutorial.Active) Progress.AddStat(Progress.Stat.BestCombo, Streak);
-        if (Streak == GameConfig.SuperStreakAt) ShowToast("SUPER HOT STREAK! x" + Multiplier, 2f);
-        else if (Streak == hotStreakAt) ShowToast("HOT STREAK! x" + Multiplier, 2f);
+        StreakToast();
+    }
+
+    // The streak just reached the hot (or the super hot) level: the words, with one flame or two after them.
+    void StreakToast()
+    {
+        if (Streak == GameConfig.SuperStreakAt) ShowToast("SUPER HOT", 2f, ToastIcon.FireDouble);
+        else if (Streak == hotStreakAt) ShowToast("HOT STREAK", 2f, ToastIcon.Fire);
     }
 
     public void PaperMissed(Vector3 pos)
     {
         if (!Playing) return;
-        ShowToast("Missed!");
         Juice.Miss(pos);
     }
 
@@ -333,14 +331,12 @@ public class GameManager : MonoBehaviour
     {
         if (!Playing) return;
         Juice.WindowBreak(pos);
-        ShowToast("Crash!", 0.8f);
     }
 
     public void BrokeDishes(Vector3 pos)
     {
         if (!Playing) return;
         Juice.WindowBreak(pos);
-        ShowToast("Smash!", 0.8f);
     }
 
     // Points for a trick that is not a delivery (a swish through a hoop at a house with no customer).
@@ -348,15 +344,27 @@ public class GameManager : MonoBehaviour
     {
         if (!Playing) return;
         Streak++;               // a hoop (a swish at a house with no customer, a palm shot) counts as a hit too
-        if (!Tutorial.Active) Progress.AddStat(Progress.Stat.BestCombo, Streak);
         points *= Multiplier;   // every point is multiplied by the streak
         Score += points;
         ShowToast(label + points);
-        if (label.StartsWith("Dunk")) Juice.HoopBlast(pos, 1.3f);
+        if (label.StartsWith("Swish")) Juice.HoopBlast(pos, 1.3f);
         else Juice.Delivery(pos, 1.3f);
     }
 
-    public void BasketScored() { if (Playing) RunBaskets++; }
+    // A basket was scored (each ring pays once): it is worth 3 coins.
+    public void BasketScored()
+    {
+        if (!Playing) return;
+        RunBaskets++;
+        AddRunCoins(GameConfig.CoinsPerBasket);
+    }
+
+    // Coins earned in this run (shown on the HUD, paid out when the run ends). The tutorial earns none.
+    public void AddRunCoins(int n)
+    {
+        if (!Playing || Tutorial.Active || n <= 0) return;
+        RunCoins += n;
+    }
 
     // A trick shot (a bounce off anything but a backboard or ring, then through a ring): the bonus comes with a big fiery explosion.
     public void TrickBonus(int points, string label, Vector3 pos)
@@ -364,7 +372,7 @@ public class GameManager : MonoBehaviour
         if (!Playing) return;
         points *= Multiplier;
         Score += points;
-        ShowToast(label + points, 2f);
+        ShowToast(label, 2f);   // (the words only, no points)
         Juice.TrickShot(pos);
     }
 
@@ -383,7 +391,7 @@ public class GameManager : MonoBehaviour
         points *= Multiplier;
         Score += points;
         Papers += papers;
-        ShowToast("Stack cleared!  +" + points + "  +" + papers + " papers", 2f);
+        ShowToast("Stack Cleared!", 2f);
         Juice.Smash(pos, Color.white, true);
     }
 
@@ -391,7 +399,7 @@ public class GameManager : MonoBehaviour
     {
         if (!Playing || Tutorial.Active) return;
         BreakStreak();   // the only thing that breaks the streak: a building left with a floor undelivered, which costs a life
-        LoseLife(livesLostMissedCustomer, "Missed a customer!");
+        LoseLife(livesLostMissedCustomer, "Customer complain", ToastIcon.Alert);
     }
 
     public void HitHazard(string what, Vector3 pos)
@@ -412,32 +420,28 @@ public class GameManager : MonoBehaviour
         if (scared > 0)
         {
             Score += 5 * scared;
-            ShowToast("Road cleared! +" + 5 * scared);
-            Progress.AddStat(Progress.Stat.Bell, scared);
-        }
-        else
-        {
-            ShowToast("Ring! (nothing ahead)", 0.8f);
         }
     }
 
-    public void ShowToast(string message, float seconds = 1.5f)
+    public void ShowToast(string message, float seconds = 1.5f, ToastIcon icon = ToastIcon.None)
     {
+        if (string.IsNullOrEmpty(message)) return;   // (no text: nothing is shown)
         Toast = message;
+        ToastIconKind = icon;
         ToastUntil = Time.unscaledTime + seconds;
     }
 
     // A mistake costs lives. A short grace period stops one collision from costing several.
-    void LoseLife(int amount, string message)
+    void LoseLife(int amount, string message, ToastIcon icon = ToastIcon.None)
     {
-        if (Tutorial.Active) { ShowToast(message); return; }   // no lives are lost while learning
-        if (amount <= 0) { ShowToast(message); return; }
-        if (GameConfig.GodMode) { ShowToast(message + " (god mode)"); return; }
+        if (Tutorial.Active) { ShowToast(message, 1.5f, icon); return; }   // no lives are lost while learning
+        if (amount <= 0) { ShowToast(message, 1.5f, icon); return; }
+        if (GameConfig.GodMode) { ShowToast(string.IsNullOrEmpty(message) ? null : message + " (god mode)", 1.5f, icon); return; }
         if (Time.unscaledTime < invulnerableUntil) return;
         Lives = Mathf.Max(0, Lives - amount);
         invulnerableUntil = Time.unscaledTime + invulnerableSeconds;
-        ShowToast(message + (Lives > 0 ? "  Lives: " + Lives : ""));
-        if (Lives <= 0) End("Out of lives");
+        ShowToast(message, 1.5f, icon);
+        if (Lives <= 0) End("Too many customer complaints.");
     }
 
     // A paper hit a heart.
@@ -447,13 +451,11 @@ public class GameManager : MonoBehaviour
         if (Lives < maxLives)
         {
             Lives++;
-            ShowToast("+1 life!  Lives: " + Lives, 2f);
         }
         else
         {
             int heartPoints = heartPointsWhenFull * Multiplier;
             Score += heartPoints;
-            ShowToast("Heart! +" + heartPoints, 2f);
         }
         Juice.Delivery(pos, 1.6f);
     }

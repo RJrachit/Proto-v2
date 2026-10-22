@@ -124,7 +124,7 @@ public partial class House : MonoBehaviour
     static readonly Color GlassColor = new Color(0.65f, 0.85f, 1.00f);
     static readonly Color BrokenColor = new Color(0.25f, 0.25f, 0.28f);
     static readonly Color BeaconIdle = Color.white;
-    static readonly Color BeaconReady = new Color(1.00f, 0.95f, 0.30f);
+    static readonly Color BeaconReady = new Color(1.00f, 0.92f, 0.10f);
 
     // Lot layout, seen from above (the right side of the road; the left side is mirrored). z runs along the road.
     //   road | footpath x 3-4.4 | lot x 4.4-8.5 | house wall at x 8.5
@@ -492,13 +492,19 @@ public partial class House : MonoBehaviour
         var gm = GameManager.Instance;
         if (bike == null || gm == null) return;
 
-        // Marker: spins, and grows and turns yellow when it's a good time to throw.
+        // Marker: always turns to face the camera (with a gentle sway), and grows, pulses and turns yellow when it's a good time to throw.
         if (beacon != null && beacon.activeSelf)
         {
-            beacon.transform.Rotate(0f, 120f * Time.deltaTime, 0f, Space.World);
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                Vector3 f = cam.transform.forward; f.y = 0f;
+                if (f.sqrMagnitude > 0.01f) beacon.transform.rotation = Quaternion.LookRotation(f.normalized) * Quaternion.Euler(0f, Mathf.Sin(Time.time * 2f + transform.position.z) * 16f, 0f);
+            }
             float dz = transform.position.z - bike.transform.position.z;
             bool ready = dz > 1f && dz < 9f;
-            float size = Mathf.Lerp(beacon.transform.localScale.x, ready ? 1.3f : 0.9f, Time.deltaTime * 8f);
+            float want = ready ? 1.6f * (1f + 0.06f * Mathf.Sin(Time.time * 9f)) : 1.15f;
+            float size = Mathf.Lerp(beacon.transform.localScale.x, want, Time.deltaTime * 8f);
             beacon.transform.localScale = new Vector3(size, size, size);
             if (beaconRenderer != null) beaconRenderer.material.color = ready ? BeaconReady : BeaconIdle;   // the coin face
         }
@@ -515,6 +521,7 @@ public partial class House : MonoBehaviour
     {
         var gm = GameManager.Instance;
         if (gm == null) return;
+        gm.NoteScorePos(pos);   // (where the coin dust starts)
 
         // A hoop at a house with no customer is just a trick shot: a small bonus, once.
         if (kind == HouseTarget.Kind.Hoop && !Subscriber)

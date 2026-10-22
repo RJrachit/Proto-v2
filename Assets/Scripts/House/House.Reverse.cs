@@ -40,14 +40,14 @@ public partial class House
 
         if (reverseOnWall)
         {
-            WallBoard(ringY, 0.4f, 1.05f, z);
+            WallBoard(ringY, BoardUp, BoardH, z);
         }
         else
         {
             Color steel = new Color(0.45f, 0.45f, 0.48f);
             Part(new Vector3(s * (ringAbs + 0.8f), (ringY + 1.0f) * 0.5f, z), new Vector3(0.15f, ringY + 1.0f, 0.15f), steel, true);      // pole, behind the board
-            SoftBoard(Part(new Vector3(s * (ringAbs + 0.6f), ringY + 0.4f, z), new Vector3(0.1f, 1.05f, 1.6f), Color.white, true));       // backboard, facing the road
-            BoardMarks(new Vector3(s * (ringAbs + 0.6f), ringY + 0.4f, z), 1.05f, true);
+            SoftBoard(Part(new Vector3(s * (ringAbs + 0.6f), ringY + BoardUp, z), new Vector3(0.1f, BoardH, BoardW), Color.white, true));       // backboard, facing the road
+            BoardMarks(new Vector3(s * (ringAbs + 0.6f), ringY + BoardUp, z), BoardH, true);
         }
         RingParts(ringX, ringY, z);
 

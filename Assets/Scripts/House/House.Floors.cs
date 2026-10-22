@@ -263,7 +263,7 @@ public partial class House
     {
         var r = board != null ? board.GetComponent<Renderer>() : null;
         if (r == null) return;
-        Prim.GlowOrange(r);
+        Prim.GlowOrange(r, false);   // (the board glows; only the rings show through things)
         glowRend.Add(r);   // (a reused part goes back to a plain material)
         boardGlowR = r;
     }
@@ -350,7 +350,7 @@ public partial class House
             float ringY = FloorBase(f) + 2.3f;
             float ringX = s * 7.88f;
             skipBoardGlow = Tutorial.Active;   // (the tutorial's tower board has its own orange glow, below)
-            var board = WallBoard(ringY, 0.4f, 1.05f, hz);
+            var board = WallBoard(ringY, BoardUp, BoardH, hz);
             skipBoardGlow = false;
             if (Tutorial.Active)
             {
@@ -416,6 +416,7 @@ public partial class House
     {
         var gm = GameManager.Instance;
         if (gm == null || !Subscriber) return;
+        gm.NoteScorePos(pos);   // (where the coin dust starts)
         if (resolved) return;
         BalconySet b = balconies != null && zone != null && zone.index >= 0 && zone.index < balconies.Length ? balconies[zone.index] : null;
         if (b == null || !b.on) return;

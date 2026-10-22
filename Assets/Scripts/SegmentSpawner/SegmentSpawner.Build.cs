@@ -83,15 +83,25 @@ public partial class SegmentSpawner
         }
 
         // Customer marker, floating beside the road where it is easy to see.
-        // A spinning coin: red ring, white face (turns yellow when it is time to throw) and a red exclamation mark through it.
+        // A big round sign that always faces the camera: a dark outline, a red ring, a white face (turns yellow when it is time to throw) and a bold red "!".
         var beacon = new GameObject("Marker");
         beacon.transform.SetParent(t, false);
         beacon.transform.localPosition = new Vector3(side * 3.6f, 3.4f, 0f);
+        GameObject beaconFace;
         var flat = new Vector3(90f, 0f, 0f);   // cylinder axis along z: a coin standing on its edge
-        Prim.Make(PrimitiveType.Cylinder, "Ring", beacon.transform, Vector3.zero, new Vector3(1.5f, 0.05f, 1.5f), Color.red, false, flat);
-        var beaconFace = Prim.Make(PrimitiveType.Cylinder, "Face", beacon.transform, Vector3.zero, new Vector3(1.25f, 0.06f, 1.25f), Color.white, false, flat);
-        Prim.Make(PrimitiveType.Cube, "Bar", beacon.transform, new Vector3(0f, 0.2f, 0f), new Vector3(0.2f, 0.72f, 0.2f), Color.red);
-        Prim.Make(PrimitiveType.Cube, "Dot", beacon.transform, new Vector3(0f, -0.38f, 0f), new Vector3(0.24f, 0.24f, 0.24f), Color.red);
+        Color outline = new Color(0.30f, 0.02f, 0.04f);
+        Color red = new Color(1.00f, 0.10f, 0.08f);      // a vivid, unlit red: bright in any light
+        Color signWhite = new Color(1.00f, 1.00f, 1.00f);
+        System.Action<GameObject, Color> glow = (glowObj, glowCol) => Prim.GlowColor(glowObj.GetComponent<Renderer>(), glowCol);
+        var pOutline = Prim.Make(PrimitiveType.Cylinder, "Outline", beacon.transform, new Vector3(0f, 0f, 0f), new Vector3(1.78f, 0.05f, 1.78f), outline, false, flat); glow(pOutline, outline);
+        var pRing = Prim.Make(PrimitiveType.Cylinder, "Ring", beacon.transform, new Vector3(0f, 0f, 0f), new Vector3(1.56f, 0.07f, 1.56f), red, false, flat); glow(pRing, red);
+        beaconFace = Prim.Make(PrimitiveType.Cylinder, "Face", beacon.transform, new Vector3(0f, 0f, 0f), new Vector3(1.30f, 0.09f, 1.30f), signWhite, false, flat); glow(beaconFace, signWhite);
+        // the "!": a bar that is wider at the top, and a round dot, with the same dark edge as the sign
+        var pBarEdge = Prim.Make(PrimitiveType.Cube, "BarEdge", beacon.transform, new Vector3(0f, 0.22f, 0f), new Vector3(0.40f, 0.80f, 0.19f), outline); glow(pBarEdge, outline);
+        var pBar = Prim.Make(PrimitiveType.Cube, "Bar", beacon.transform, new Vector3(0f, 0.22f, 0f), new Vector3(0.30f, 0.72f, 0.22f), red); glow(pBar, red);
+        var pBarTop = Prim.Make(PrimitiveType.Cube, "BarTop", beacon.transform, new Vector3(0f, 0.46f, 0f), new Vector3(0.38f, 0.28f, 0.22f), red); glow(pBarTop, red);
+        var pDotEdge = Prim.Make(PrimitiveType.Sphere, "DotEdge", beacon.transform, new Vector3(0f, -0.40f, 0f), new Vector3(0.40f, 0.40f, 0.30f), outline); glow(pDotEdge, outline);
+        var pDot = Prim.Make(PrimitiveType.Sphere, "Dot", beacon.transform, new Vector3(0f, -0.40f, 0f), new Vector3(0.32f, 0.32f, 0.36f), red); glow(pDot, red);
         // one dot per floor of a house with several floors, stacked above the coin (ground at the bottom): green while open, gold when served
         house.pips = new Renderer[3];
         for (int pi = 0; pi < house.pips.Length; pi++)

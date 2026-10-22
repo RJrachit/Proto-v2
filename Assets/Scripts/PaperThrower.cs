@@ -28,6 +28,8 @@ public class PaperThrower : MonoBehaviour
     public float powerCurve = GameConfig.PowerCurve;
     [Tooltip("How much of the bike's forward speed the paper keeps.")]
     public float forwardInherit = GameConfig.ForwardInherit;
+    // how much of the bike's speed the paper keeps: none while "Cancel the bike's push" is on (the paper then goes exactly the way the pull points, in the world)
+    float Inherit { get { return GameConfig.CancelBikePush ? 0f : forwardInherit; } }
 
     [Header("Aim assist")]
     [Tooltip("Nudges throws that would land close to a marked customer's door, mailbox or balcony so they land on it. The preview shows the assisted arc.")]
@@ -62,7 +64,9 @@ public class PaperThrower : MonoBehaviour
     readonly Gradient arcGradient = new Gradient();
     readonly GradientColorKey[] arcColorKeys = new GradientColorKey[5];
     readonly GradientAlphaKey[] arcAlphaKeys = new GradientAlphaKey[5];
-    LineRenderer groundLine;   // straight line on the ground under the arc, along the direction of the throw
+    System.Func<float, float, float> arrowFixedY, arrowGroundY;   // (kept as fields so nothing is allocated every frame)
+    LineRenderer dropLine;       // the thin vertical line from the end of the arc down to the end of the arrow
+    GroundArrow groundArrow;   // an arrow on the ground under the arc, along the direction of the throw
     Vector2 startPos;
     float pressTime;
     bool aiming;
@@ -73,7 +77,21 @@ public class PaperThrower : MonoBehaviour
     Vector3 ThrowOrigin { get { return transform.position + Vector3.up * 1.6f; } }
 
     // Pull sizes are measured against the SHORT screen edge, so a pull feels the same in portrait and landscape.
-    float RefSize { get { return Mathf.Min(Screen.width, Screen.height); } }
+    float ScreenShort { get { return Mathf.Min(Screen.width, Screen.height); } }
+
+    // The size every pull length is a fraction of: the short screen edge, but never so big that the full pull needs more than MaxPullMm of finger
+    // travel (a tablet). Phones are not affected (their full pull is already under the limit). Public: the tutorial's circles use it too.
+    public float RefSize
+    {
+        get
+        {
+            float s = ScreenShort;
+            float dpi = Screen.dpi;
+            if (GameConfig.MaxPullMm > 0f && dpi >= 120f && dpi <= 700f && fullPowerDrag > 0.01f)   // (no believable DPI: the plain fraction)
+                s = Mathf.Min(s, GameConfig.MaxPullMm / 25.4f * dpi / fullPowerDrag);
+            return s;
+        }
+    }
 
     void Awake()
     {
@@ -83,6 +101,8 @@ public class PaperThrower : MonoBehaviour
         launchAngleLight = GameConfig.LaunchAngleLight;
         launchAngleFull = GameConfig.LaunchAngleFull;
         powerCurve = GameConfig.PowerCurve;
+        deadZone = GameConfig.DeadZone;
+        fullPowerDrag = GameConfig.FullPowerDrag;
         bike = GetComponent<BikeForward>();
         line = gameObject.AddComponent<LineRenderer>();
         line.material = Mat.Particle();
@@ -91,14 +111,18 @@ public class PaperThrower : MonoBehaviour
         line.numCornerVertices = 2;
         line.useWorldSpace = true;
 
-        var gl = new GameObject("GroundAimLine");
-        gl.transform.SetParent(transform, false);
-        groundLine = gl.AddComponent<LineRenderer>();
-        groundLine.material = Mat.Particle();
-        groundLine.widthMultiplier = 0.22f;
-        groundLine.useWorldSpace = true;
-        groundLine.positionCount = 2;
-        groundLine.numCapVertices = 4;
+        groundArrow = new GroundArrow(transform);
+        var dl = new GameObject("AimDropLine");
+        dl.transform.SetParent(transform, false);
+        dropLine = dl.AddComponent<LineRenderer>();
+        dropLine.material = Mat.Particle();
+        dropLine.useWorldSpace = true;
+        dropLine.positionCount = 2;
+        dropLine.widthMultiplier = 0.05f;
+        dropLine.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        dropLine.enabled = false;
+        arrowFixedY = (x, z) => GameConfig.ArrowHeight - 0.10f;   // (the arrow's own lift is added on top)
+        arrowGroundY = GroundY;
 
         var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         orb.name = "AimLandingOrb";
@@ -112,10 +136,13 @@ public class PaperThrower : MonoBehaviour
         SetLines(false);
     }
 
+    void OnDestroy() { if (groundArrow != null) groundArrow.Destroy(); }
+
     void SetLines(bool on)
     {
         line.enabled = on;
-        if (groundLine != null) groundLine.enabled = on;
+        if (groundArrow != null) groundArrow.SetEnabled(on);
+        if (dropLine != null && !on) dropLine.enabled = false;
         if (landingOrbR != null) landingOrbR.enabled = on;
     }
 
@@ -174,6 +201,7 @@ public class PaperThrower : MonoBehaviour
                 aiming = true;
                 dragging = false;
                 startPos = Input.mousePosition;
+                steadyInit = false;
                 pressTime = Time.unscaledTime;
                 lastBucket = 0;
             }
@@ -239,7 +267,7 @@ public class PaperThrower : MonoBehaviour
         float cap = fullPowerDrag * RefSize;
         if (dir.sqrMagnitude < 1e-6f) return cap;
         dir.Normalize();
-        float margin = RefSize * 0.04f;
+        float margin = ScreenShort * 0.04f;   // (the real screen edge, not the capped size)
         Rect safe = Screen.safeArea;
         float room = float.MaxValue;
         if (dir.x > 0.001f) room = Mathf.Min(room, (safe.xMax - margin - start.x) / dir.x);
@@ -264,21 +292,79 @@ public class PaperThrower : MonoBehaviour
         power = Mathf.Pow(Mathf.InverseLerp(deadZone, capFraction, length), powerCurve);
 
         // Heading on the ground: screen X -> road sideways, screen Y -> along the road (turned with the camera, see below)
+        if (aim.sqrMagnitude > 1e-4f) aim = SteadyDir(aim.normalized, length) * aim.magnitude;   // (a short pull's heading is smoothed, see SteadyDir)
         Vector3 heading = transform.right * aim.x + transform.forward * aim.y;
         var view = CameraFollow.Instance;
         if (view != null && !view.firstPerson) heading = Quaternion.Euler(0f, view.yaw, 0f) * heading;   // follow the camera's turn: in the side view, screen right is along the road
         heading = heading.sqrMagnitude > 0.0001f ? heading.normalized : transform.forward;
+        if (GameConfig.ScreenTrueAim && aim.sqrMagnitude > 1e-4f) heading = ScreenTrueHeading(aim, heading);
 
         float distance = Mathf.Lerp(minDistance, maxDistance, power);
         if (wet) distance *= 1f - GameConfig.RainThrowPenalty;   // a wet paper lands short
         float th = Mathf.Lerp(launchAngleLight, launchAngleFull, power) * Mathf.Deg2Rad;   // the harder the pull, the higher the arc
         float speed = SpeedForDistance(distance, th);
 
-        Vector3 v = bike.Velocity * forwardInherit
+        Vector3 v = bike.Velocity * Inherit
                   + heading * speed * Mathf.Cos(th)
                   + Vector3.up * speed * Mathf.Sin(th);
         if (valid && assist && !Tutorial.Active) v = ApplyAssist(v);   // the tutorial teaches the plain throw
         return v;
+    }
+
+    // The ground heading that LOOKS exactly opposite the drag on the screen. The camera is not straight behind the thrower and looks down the road in
+    // perspective, so "screen up = along the road" drifts a little sideways; here the screen direction of the throw is followed from the thrower's own
+    // screen spot down to the ground instead. (The camera and the thrower stay where they are.) fallback: the plain heading, when the ray misses the ground.
+    Vector3 ScreenTrueHeading(Vector2 aimPx, Vector3 fallback)
+    {
+        var cam = Camera.main;
+        if (cam == null) return fallback;
+        Vector3 o = ThrowOrigin;
+        Vector3 sp = cam.WorldToScreenPoint(o);
+        if (sp.z <= 0.1f) return fallback;
+        Vector2 step = aimPx.normalized * 60f;
+        Ray ray = cam.ScreenPointToRay(new Vector3(sp.x + step.x, sp.y + step.y, 0f));
+        var plane = new Plane(Vector3.up, new Vector3(0f, o.y, 0f));
+        float t;
+        if (!plane.Raycast(ray, out t)) return fallback;
+        Vector3 h = ray.GetPoint(t) - o;
+        h.y = 0f;
+        return h.sqrMagnitude > 0.0001f ? h.normalized : fallback;
+    }
+
+    // A short pull turns the heading a lot for a tiny wobble of the finger, so the heading is smoothed the shorter the pull is
+    // (GameConfig.AimSteady, below AimSteadyBelow). The smoothing runs once per frame: the preview and the throw itself see the same heading.
+    Vector2 steadyDir;
+    int steadyFrame = -1;
+    bool steadyInit;
+
+    Vector2 SteadyDir(Vector2 raw, float length)
+    {
+        if (steadyFrame == Time.frameCount) return steadyDir;
+        steadyFrame = Time.frameCount;
+        if (!steadyInit || GameConfig.AimSteady <= 0f) { steadyDir = raw; steadyInit = true; return steadyDir; }
+        float shortness = 1f - Mathf.Clamp01(length / Mathf.Max(0.02f, GameConfig.AimSteadyBelow));
+        float k = GameConfig.AimSteady * shortness;                         // 0 = follow the finger, towards 1 = slow and steady
+        float a = 1f - Mathf.Pow(k, Mathf.Clamp(Time.unscaledDeltaTime, 0.001f, 0.1f) * 60f);   // the blend per frame (1 - k at 60 fps)
+        Vector2 m = Vector2.Lerp(steadyDir, raw, a);
+        steadyDir = m.sqrMagnitude > 1e-6f ? m.normalized : raw;
+        return steadyDir;
+    }
+
+    static readonly RaycastHit[] groundHits = new RaycastHit[8];
+
+    // The height of the highest surface under a spot (the thrower, papers and the like do not count). The ray starts at 0.8 m, below roofs and
+    // inside a car or a fence, so the line never climbs onto those.
+    float GroundY(float x, float z)
+    {
+        int cnt = Physics.RaycastNonAlloc(new Vector3(x, 0.8f, z), Vector3.down, groundHits, 1.2f, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        float best = float.NegativeInfinity;
+        for (int i = 0; i < cnt; i++)
+        {
+            var c = groundHits[i].collider;
+            if (c == null || c.GetComponentInParent<PaperThrower>() != null || c.GetComponent<Paper>() != null) continue;
+            if (groundHits[i].point.y > best) best = groundHits[i].point.y;
+        }
+        return best > float.NegativeInfinity ? best : 0f;
     }
 
     // ---- for the tutorial's lessons (they work out where a pull has to end) ----
@@ -294,7 +380,7 @@ public class PaperThrower : MonoBehaviour
         float distance = Mathf.Lerp(minDistance, maxDistance, power);
         float th = Mathf.Lerp(launchAngleLight, launchAngleFull, power) * Mathf.Deg2Rad;
         float speed = SpeedForDistance(distance, th);
-        return bike.Velocity * forwardInherit + heading * speed * Mathf.Cos(th) + Vector3.up * speed * Mathf.Sin(th);
+        return bike.Velocity * Inherit + heading * speed * Mathf.Cos(th) + Vector3.up * speed * Mathf.Sin(th);
     }
 
     // The pull length (as a fraction of the short screen edge) that gives this power, for a drag starting at startPx (y up) in direction dragDir.
@@ -426,16 +512,25 @@ public class PaperThrower : MonoBehaviour
         var wc = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, endWidth));
         line.widthCurve = wc;
 
-        // The same line on the ground: from under the hand to where the arc ends, so the direction of the throw reads clearly.
-        // It carries the same depth taper, and a faint colour so the arc stays the main cue.
-        Vector3 g0 = new Vector3(ThrowOrigin.x, 0.07f, ThrowOrigin.z);
-        Vector3 g1 = new Vector3(pts[n - 1].x, 0.07f, pts[n - 1].z);
-        groundLine.SetPosition(0, g0);
-        groundLine.SetPosition(1, g1);
-        Color gc = valid ? new Color(0.6f, 0.95f, 1f, 0.4f) : new Color(1f, 1f, 1f, 0.2f);
-        groundLine.startColor = gc;
-        groundLine.endColor = gc;
-        groundLine.widthCurve = wc;
+        // The arrow on the ground: from under the hand to where the arc ends, so the direction of the throw reads clearly. It follows the ground
+        // it runs over (pavement, kerbs, steps, court paint stand higher than the lawn), so it is never hidden under it.
+        groundArrow.Draw(new Vector2(ThrowOrigin.x, ThrowOrigin.z), new Vector2(pts[n - 1].x, pts[n - 1].z), GameConfig.ArrowHeight > 0f ? arrowFixedY : arrowGroundY, valid, power);
+
+        // the drop line: from the end of the arc straight down to the end of the arrow
+        if (dropLine != null)
+        {
+            Vector3 top = pts[n - 1];
+            float bottomY = GameConfig.ArrowHeight > 0f ? GameConfig.ArrowHeight : GroundY(top.x, top.z) + 0.1f;
+            bool show = GameConfig.AimDropLine && valid && top.y - bottomY > 0.3f;
+            dropLine.enabled = show;
+            if (show)
+            {
+                dropLine.SetPosition(0, top);
+                dropLine.SetPosition(1, new Vector3(top.x, bottomY, top.z));
+                dropLine.startColor = new Color(1f, 1f, 1f, 0.15f);   // white, faint at the top, a little stronger where it meets the arrow
+                dropLine.endColor = new Color(1f, 1f, 1f, 0.50f);
+            }
+        }
 
         AimPoint = pts[n - 1];
         AimActive = valid;

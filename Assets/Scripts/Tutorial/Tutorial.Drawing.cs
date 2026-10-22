@@ -37,7 +37,7 @@ public partial class Tutorial
         subS = new GUIStyle(titleS) { fontSize = 19, fontStyle = FontStyle.Normal, wordWrap = true, alignment = TextAnchor.UpperCenter };
         subS.normal.textColor = UiTheme.Cream;
         hintS = new GUIStyle(subS) { fontSize = 18, fontStyle = FontStyle.Bold };
-        hintS.normal.textColor = UiTheme.Mint;
+        hintS.normal.textColor = new Color(0.08f, 0.40f, 0.22f);   // (dark green: it sits on the paper note)
         tileS = new GUIStyle(titleS) { fontSize = 18 };
         tileS.normal.textColor = UiTheme.Cream;
         tileDimS = new GUIStyle(tileS);
@@ -82,12 +82,12 @@ public partial class Tutorial
         }
 
         bool caption = step == 0 || step >= 4;
-        float ch = caption ? 212f : 156f;
+        float ch = caption ? 270f : 250f;   // the paper note: room for the title, up to four lines of handwriting and the hint or the button
         float cw = Mathf.Min(w - 32f - insetL - insetR, portrait ? 480f : 560f);
         var card = new Rect((w - cw) * 0.5f, h - ch - 22f - insetB, cw, ch);
         if (step == 0)
         {
-            ch = 190f;
+            ch = 250f;
             card = new Rect((w - cw) * 0.5f, 160f + insetT, cw, ch);   // at the top, so it never covers the glowing spots down the road
         }
 
@@ -111,21 +111,11 @@ public partial class Tutorial
             GUI.color = Color.white;
         }
 
-        // the card
-        UiTheme.Card(card);
+        // the card: a sticky note of torn paper, like the pull lesson (no progress dots)
         cardRectScreen = new Rect(card.x * scale, card.y * scale, card.width * scale, card.height * scale);
-
-        int dots = StepCount - 1;   // step 0 (the intro) is not used, so it has no dot
-        for (int i = 1; i < StepCount; i++)
-        {
-            var dot = new Rect(card.center.x - dots * 9f + (i - 1) * 18f + 3f, card.y + 14f, 12f, 12f);
-            UiTheme.Pill(dot, i < step ? UiTheme.Mint : (i == step ? UiTheme.Gold : new Color(1f, 1f, 1f, 0.22f)));
-        }
-
-        UiTheme.Label(new Rect(card.x + 12f, card.y + 28f, card.width - 24f, 40f), Titles[step], titleS, 1.5f);
-        GUI.Label(new Rect(card.x + 24f, card.y + 70f, card.width - 48f, 62f), ForControls(Subs[step]), subS);
+        DrawNote(card, Titles[step], ForControls(Subs[step]), 125f);
         if (IsHouseStep(step) && throws >= 3)
-            GUI.Label(new Rect(card.x + 24f, card.yMax - 34f, card.width - 48f, 26f), ForControls(Hints[step - 1]), hintS);
+            GUI.Label(new Rect(card.x + 24f, card.yMax - 52f, card.width - 48f, 40f), ForControls(Hints[step - 1]), hintS);
 
         // buttons on the caption steps
         if (caption)
@@ -144,18 +134,7 @@ public partial class Tutorial
         extraRectScreen = new Rect(0f, 0f, 0f, 0f);
         if (step < StepCount - 1)
         {
-            if (SkipButton(new Rect(card.xMax - 70f, card.y + 6f, 56f, 20f))) { Leave(); return; }
-        }
-
-        // praise above the card
-        if (!string.IsNullOrEmpty(praise) && Time.unscaledTime < praiseUntil)
-        {
-            float a = Mathf.Clamp01((praiseUntil - Time.unscaledTime) * 2.5f);
-            float rise = (1f - Mathf.Clamp01((praiseUntil - Time.unscaledTime) / 1.4f)) * 30f;
-            Color keep = praiseS.normal.textColor;
-            praiseS.normal.textColor = new Color(keep.r, keep.g, keep.b, a);
-            UiTheme.Label(new Rect(0f, card.y - 78f - rise, w, 64f), praise, praiseS, 2f);
-            praiseS.normal.textColor = keep;
+            if (SkipButton(new Rect(card.xMax - 70f, card.y + 6f, 56f, 20f), true)) { Leave(); return; }
         }
 
         // the quick fade when the bike is put back
@@ -273,11 +252,11 @@ public partial class Tutorial
     }
 
     // A small, flat "Skip" chip that sits fully inside the card's top-right corner (the themed button's shadow and rim stuck out of the card).
-    bool SkipButton(Rect r)
+    bool SkipButton(Rect r, bool onPaper = false)
     {
         // plain text, no shape: nothing to overlap the card edge or the title
         bool hot = r.Contains(Event.current.mousePosition);
-        skipS.normal.textColor = new Color(1f, 1f, 1f, hot ? 1f : 0.7f);
+        skipS.normal.textColor = onPaper ? new Color(0.10f, 0.09f, 0.08f, hot ? 1f : 0.6f) : new Color(1f, 1f, 1f, hot ? 1f : 0.7f);
         GUI.Label(r, "Skip", skipS);
         return GUI.Button(new Rect(r.x - 10f, r.y - 6f, r.width + 20f, r.height + 12f), GUIContent.none, GUIStyle.none);   // a roomier tap area than the text
     }

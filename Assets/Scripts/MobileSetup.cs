@@ -9,7 +9,7 @@ public class MobileSetup : MonoBehaviour
     void Awake()
     {
         QualitySettings.vSyncCount = 0;
-        Application.targetFrameRate = 60;           // phones default to 30
+        Application.targetFrameRate = GameConfig.TargetFps;   // phones default to 30
         Screen.sleepTimeout = SleepTimeout.NeverSleep;
 
         if (portraitOnly)
@@ -25,6 +25,7 @@ public class MobileSetup : MonoBehaviour
             Screen.orientation = ScreenOrientation.AutoRotation;
         }
 
+        UnityEngine.Rendering.GraphicsSettings.useScriptableRenderPipelineBatching = true;   // SRP Batcher on: far fewer state changes (SetPass calls) for the many small parts
         QualitySettings.shadows = ShadowQuality.Disable;
         QualitySettings.antiAliasing = GameConfig.MsaaSamples > 1 ? GameConfig.MsaaSamples : 0;
         QualitySettings.pixelLightCount = 1;
@@ -33,7 +34,7 @@ public class MobileSetup : MonoBehaviour
 
     // The URP asset decides the real MSAA level and the render scale (read by reflection, like the other URP settings in this project, so no
     // package reference is needed). The values the asset had are logged, so the Console shows what changed.
-    static void ApplyEdgeSmoothing()
+    public static void ApplyEdgeSmoothing(bool log = true)
     {
         try
         {
@@ -47,7 +48,7 @@ public class MobileSetup : MonoBehaviour
             if (scale != null && scale.CanRead) was += "render scale " + scale.GetValue(asset, null);
             if (msaa != null && msaa.CanWrite) msaa.SetValue(asset, Mathf.Max(1, GameConfig.MsaaSamples), null);
             if (scale != null && scale.CanWrite) scale.SetValue(asset, GameConfig.RenderScale, null);
-            Debug.Log("MobileSetup: the render pipeline asset had " + was + "; now MSAA x" + GameConfig.MsaaSamples + ", render scale " + GameConfig.RenderScale);
+            if (log) Debug.Log("MobileSetup: the render pipeline asset had " + was + "; now MSAA x" + GameConfig.MsaaSamples + ", render scale " + GameConfig.RenderScale);
         }
         catch (System.Exception e) { Debug.LogWarning("Could not set the anti-aliasing: " + e.Message); }
     }

@@ -75,7 +75,15 @@ public partial class House
     }
 
     // A basketball backboard is soft: the paper thuds and drops towards the ring.
-    static void SoftBoard(Transform t) { SetBank(t, GameConfig.BoardBounce, GameConfig.BoardSlideKeep, true); }
+    // It also glows a soft white (an unlit material); the renderer is remembered so a reused part goes back to a plain material.
+    void SoftBoard(Transform t)
+    {
+        SetBank(t, GameConfig.BoardBounce, GameConfig.BoardSlideKeep, true);
+        var r = t != null ? t.GetComponent<Renderer>() : null;
+        if (r == null) return;
+        Prim.GlowWhite(r);
+        glowRend.Add(r);
+    }
 
     // Every hoop ring glows orange (see Prim.GlowOrange). The renderers are remembered so a reused part goes back to a plain material.
     readonly HashSet<Renderer> glowRend = new HashSet<Renderer>();

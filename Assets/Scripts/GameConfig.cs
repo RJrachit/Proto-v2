@@ -10,11 +10,14 @@ public static class GameConfig
     // true: pull back like a slingshot (the paper flies opposite to your drag). false: drag towards the target.
     public static bool SlingshotStyle = true;
     // Pulls shorter than this (fraction of the short screen edge) cancel the throw.
-    public static float DeadZone = 0.06f;
+    public static float DeadZone = 0.08f;
     // Pull length (fraction of the short screen edge) that gives the maximum distance: a comfortable thumb pull. The pull band never goes past it.
-    public static float FullPowerDrag = 0.32f;
+    public static float FullPowerDrag = 0.45f;
+    // The full pull never takes more than this many millimetres of finger travel (0 = no limit). A phone's full pull is about 30 mm already, so this
+    // only trims big screens (tablets, an opened foldable). It needs the screen's DPI; with no believable DPI the plain screen-fraction pull is used.
+    public static float MaxPullMm = 35f;
     // Near a screen edge the full pull shrinks so the finger can still reach it (never below this fraction of the short screen edge).
-    public static float MinFullPowerDrag = 0.18f;
+    public static float MinFullPowerDrag = 0.28f;
     // Landing distance (units from the bike) for the shortest valid pull.
     public static float MinThrowDistance = 3f;
     // Landing distance for a full-length pull.
@@ -26,7 +29,12 @@ public static class GameConfig
     public static float TutorialPreviewShare = 0.7f;   // the same for the how-to-play lessons (0.1 - 1); a slider in the DEV menu
     public static float PreviewShare = 0.5f;   // how much of the aim arc is drawn (0.1 - 1); a slider in the DEV menu
     // Shapes the pull: 1 = linear, above 1 = fine control on short pulls, below 1 = short pulls already go far.
-    public static float PowerCurve = 1f;
+    public static float PowerCurve = 1.5f;
+    // Steadier aim on short pulls: a short pull turns the heading a lot for a tiny finger wobble, so the heading is smoothed there.
+    // AimSteady = how strongly (0 = off, follows the finger exactly; towards 1 = slow and steady); AimSteadyBelow = pulls shorter than this
+    // (fraction of the short screen edge) are smoothed, longer ones follow the finger more and more exactly. Sliders in the DEV menu.
+    public static float AimSteady = 0.6f;
+    public static float AimSteadyBelow = 0.25f;
     // The parcel covers the first part of its arc faster, then settles to the normal speed (the path is the same, only how fast it is flown changes):
     // ThrowBoost = speed-up at the start (1 = off), ThrowBoostShare = share of the flight (by time) that is sped up, easing back to normal at its end.
     public static float ThrowBoost = 1.5f;
@@ -36,6 +44,14 @@ public static class GameConfig
     public static float AirDrag = 0f;
     // How much of the bike's forward speed the paper keeps (0-1).
     public static float ForwardInherit = 0.35f;
+    // On: the paper does not keep any of the bike's speed, so it flies exactly opposite the pull (the aim arrow matches the drag at any bike speed). Off: it keeps ForwardInherit of it, a forward lean. A DEV menu toggle.
+    public static bool CancelBikePush = true;
+    // On: the throw's heading is worked out on the screen, so it looks exactly opposite the drag (the camera is off to the side and sees the road in perspective, which made it drift). A DEV menu toggle.
+    public static bool ScreenTrueAim = true;
+    // Combo juice: how much a long streak adds to the feel of every hit (bigger bursts, a harder camera kick, a bigger score popup, a rising chime). 0 = off, 1 = normal, 2 = a lot. A DEV menu slider.
+    public static float ComboJuice = 1f;
+    // Coins earned fly as tiny golden dust from the target up to the coin counter on the HUD (no coin is drawn). A DEV menu toggle.
+    public static bool CoinDust = true;
 
     // In the rain papers are wet and heavy: every throw lands this share shorter than the aim guide shows (0.10 = 10%). The guide itself is unchanged.
     public static float RainThrowPenalty = 0.10f;
@@ -204,6 +220,8 @@ public static class GameConfig
     public static int TrickShotMultiplier = 2;   // a trick shot basket pays this many times a normal basket (the extra comes with the fiery burst)
     public static float ChuteTilt = 15f;           // degrees the roof leans towards the ring
     public static float RoofFriction = 0.08f;      // friction of that roof (low = slippery)
+    public static float RoofMaxSpeed = 4f;         // a paper on a porch roof never slides faster than this (m/s)
+    public static float RoofSlideAccel = 3f;       // extra downhill push (m/s^2) on a paper lying on a porch roof, so it slides off quickly (0 = plain gravity only)
 
     // ============================================================ ROAD AND HOUSES
     // Possible lot lengths along the road, and the empty grass between two lots.
@@ -345,6 +363,12 @@ public static class GameConfig
     public static float HotelChance = 0.3f;       // share of buildings with upper floors that are hotels (roof board and blade sign)
     public static float ChimneyChance = 0.35f;    // share of pitched roofs with a chimney
     public static int MsaaSamples = 4;            // edge smoothing (anti-aliasing): 1 = off, 2, 4 or 8 samples. 4 is cheap on phones and smooths the low-poly edges
+    public static int TargetFps = 60;             // the frame rate cap: 30 (saves battery), 60, 90 or 120 (a Dev Menu slider; phones default to 30 without a cap)
+    // The aim arrow floats flat at this height (metres above the road), clear of the kerb (17 cm), so it is never under the pavement and needs no
+    // ground checks. 0 = follow the ground instead (a ray cast under every chevron). A DEV menu slider.
+    public static float ArrowHeight = 0.30f;
+    // A faint vertical line from the end of the aim arc straight down to the end of the aim arrow (joins the two, shows where the arc end is over the ground).
+    public static bool AimDropLine = true;
     public static float RenderScale = 1f;         // 1 = draw at the screen's full resolution (below 1 looks soft and pixelated)
     public static bool BlobShadows = true;        // soft contact shadows under houses, trees, bushes and the bike
     public static bool AmbientGradient = true;    // cool sky light, darker warm ground

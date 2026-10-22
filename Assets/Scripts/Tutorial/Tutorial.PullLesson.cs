@@ -241,7 +241,7 @@ public partial class Tutorial
             var th = ghostThrower;
             bool portrait = Screen.height > Screen.width;
             float scale = portrait ? Screen.width / 540f : Screen.height / 720f;
-            float uiRef = Mathf.Min(Screen.width, Screen.height) / scale;
+            float uiRef = th.RefSize / scale;
             float needFrac = (StartRadiusUi + ReleaseRadiusUi + CircleGapUi) / uiRef;
             float tt = Mathf.Clamp01((needFrac - th.deadZone) / Mathf.Max(0.01f, th.fullPowerDrag - th.deadZone));
             float dMin = th.minDistance + Mathf.Pow(tt, th.powerCurve) * (th.maxDistance - th.minDistance);
@@ -304,7 +304,7 @@ public partial class Tutorial
         float power = Mathf.Clamp01((dist - th.minDistance) / Mathf.Max(0.1f, th.maxDistance - th.minDistance));
         float t = Mathf.Pow(power, 1f / Mathf.Max(0.1f, th.powerCurve));
         float lenFrac = th.deadZone + t * (th.fullPowerDrag - th.deadZone);
-        float refPx = Mathf.Min(Screen.width, Screen.height);
+        float refPx = th.RefSize;
         float lenGui = lenFrac * refPx / scale;
 
         Vector2 pull;

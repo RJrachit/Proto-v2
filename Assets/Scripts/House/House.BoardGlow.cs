@@ -11,7 +11,7 @@ public partial class House
     readonly List<Transform> boardGlows = new List<Transform>();
     int boardGlowN;
 
-    static readonly Color BoardGlowColor = new Color(1.00f, 0.86f, 0.50f);
+    static readonly Color BoardGlowColor = new Color(1.00f, 0.97f, 0.90f);   // a whitish haze
 
     // Called every frame from Look: applies the slider.
     public static void TickBoardGlow()

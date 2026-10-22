@@ -25,13 +25,14 @@ public class Juice : MonoBehaviour
 
     // ---- effects used by the game ----
 
-    public static void Delivery(Vector3 pos, float pitch)
+    // combo (0..1, more with the Dev slider): the hotter the streak, the bigger the burst, the harder the kick and the longer the hit-stop
+    public static void Delivery(Vector3 pos, float pitch, float combo = 0f)
     {
         if (Instance == null) return;
-        Instance.Burst(pos + Vector3.up * 0.3f, new Color(1f, 0.85f, 0.25f), 28, 4f);
-        Instance.Burst(pos + Vector3.up * 0.3f, Color.white, 14, 2.5f);
-        Instance.HitStop(0.12f, 0.55f);   // a short, gentle slow-down
-        if (CameraFollow.Instance != null) CameraFollow.Instance.Kick(1f);
+        Instance.Burst(pos + Vector3.up * 0.3f, new Color(1f, 0.85f, 0.25f), Mathf.RoundToInt(28f * (1f + 1.6f * combo)), 4f + 2f * combo);
+        Instance.Burst(pos + Vector3.up * 0.3f, Color.white, Mathf.RoundToInt(14f * (1f + combo)), 2.5f + combo);
+        Instance.HitStop(0.12f + 0.05f * combo, 0.55f - 0.15f * Mathf.Clamp01(combo));   // a short, gentle slow-down (a little longer in a combo)
+        if (CameraFollow.Instance != null) CameraFollow.Instance.Kick(1f + 1.2f * combo);
         Sfx.Play("thwack");
         Sfx.Play("chime", 0.8f, pitch);
         Haptics.Pulse(25);
@@ -55,7 +56,7 @@ public class Juice : MonoBehaviour
     }
 
     // A basket (any swish through a ring): a fiery blast of its own, a little smaller than a trick shot's.
-    public static void HoopBlast(Vector3 pos, float pitch)
+    public static void HoopBlast(Vector3 pos, float pitch, float combo = 0f)
     {
         if (Instance == null) return;
         Vector3 c = pos + Vector3.up * 0.4f;
@@ -64,11 +65,26 @@ public class Juice : MonoBehaviour
         Instance.Fire(c, 24, 4f, 0.85f, 1.5f, -0.5f);      // big embers drifting up
         Instance.Burst(c, new Color(1f, 0.6f, 0.15f), 20, 5f);
         Instance.Flames(pos, 4f);   // the ring burns on for a while
+        if (combo > 0f) Instance.Burst(c, new Color(1f, 0.85f, 0.25f), Mathf.RoundToInt(30f * combo), 6f + 3f * combo);   // a gold burst on top, bigger in a combo
         Instance.HitStop(0.14f, 0.45f);
-        if (CameraFollow.Instance != null) CameraFollow.Instance.Kick(1.6f);
+        if (CameraFollow.Instance != null) CameraFollow.Instance.Kick(1.6f + 1.2f * combo);
         Sfx.Play("thwack");
         Sfx.Play("chime", 0.9f, pitch);
         Haptics.Pulse(40);
+    }
+
+    // Every 5th hit of a streak: a burst of gold and white, a hard kick and a high double chime.
+    public static void ComboMilestone(Vector3 pos, int streak)
+    {
+        if (Instance == null) return;
+        Vector3 c = pos + Vector3.up * 0.5f;
+        float big = Mathf.Clamp01(streak / 20f);
+        Instance.Burst(c, new Color(1f, 0.82f, 0.2f), Mathf.RoundToInt(36f + 30f * big), 8f + 3f * big);
+        Instance.Burst(c, Color.white, 24, 5.5f);
+        if (CameraFollow.Instance != null) CameraFollow.Instance.Kick(2f + big);
+        Sfx.Play("chime", 0.9f, 1.5f);
+        Sfx.Play("chime", 0.7f, 2f);
+        Haptics.Pulse(45);
     }
 
     // A paper in the leaves: a few leaves of the tree's colour shake loose and drift down.

@@ -6,7 +6,7 @@ using UnityEngine;
 public partial class GameUI
 {
     static readonly Color Ink = new Color(0.14f, 0.12f, 0.08f);
-    static readonly Color Glass = new Color(0.05f, 0.08f, 0.16f, 0.62f);   // the dark translucent backing behind HUD text
+    static readonly Color Glass = new Color(0.07f, 0.09f, 0.22f, 0.80f);   // the dark translucent backing behind HUD text
 
     GUIStyle hudScore, hudCap, hudChip, hudBadge, hudBanner;
     int hudLastScore;
@@ -15,12 +15,23 @@ public partial class GameUI
     void EnsureHudStyles()
     {
         if (hudScore != null) return;
-        hudScore = MakeText(label, 42, TextAnchor.MiddleLeft, UiTheme.Gold);
-        hudCap = MakeText(label, 13, TextAnchor.MiddleLeft, UiTheme.Dim);
-        hudChip = MakeText(label, 20, TextAnchor.MiddleCenter, UiTheme.Cream);
-        hudBadge = MakeText(label, 24, TextAnchor.MiddleCenter, Ink);
-        hudBanner = MakeText(label, 24, TextAnchor.MiddleCenter, Ink);
+        hudScore = MakeText(label, 46, TextAnchor.MiddleLeft, UiTheme.Gold);
+        hudCap = MakeText(label, 14, TextAnchor.MiddleLeft, new Color(0.62f, 0.68f, 0.88f));
+        hudChip = MakeText(label, 23, TextAnchor.MiddleCenter, UiTheme.Cream);
+        hudBadge = MakeText(label, 27, TextAnchor.MiddleCenter, Ink);
+        hudBanner = MakeText(label, 27, TextAnchor.MiddleCenter, Ink);
+        hudChip.richText = true;
+        // the same rounded cartoon font as the buttons and the title (Lilita One has no bold of its own, so plain)
+        Font f = UiTheme.ButtonFont;
+        if (f != null)
+            foreach (var s in new[] { hudScore, hudCap, hudChip, hudBadge, hudBanner, toastStyle })
+            {
+                s.font = f;
+                s.fontStyle = FontStyle.Normal;
+            }
     }
+
+    const string NumHex = "#FFD447";   // the numbers in the chips are gold, the words dim
 
     void DrawHud(GameManager gm, float w, float h)
     {
@@ -44,7 +55,7 @@ public partial class GameUI
         UiTheme.Pill(card, Glass);
         GUI.Label(new Rect(x + 18f, top + 8f, 100f, 16f), "SCORE", hudCap);
         Matrix4x4 saved = GUI.matrix;
-        GUIUtility.ScaleAroundPivot(Vector2.one * (1f + 0.16f * pulse), new Vector2(x + 18f, top + 46f));
+        GUIUtility.ScaleAroundPivot(Vector2.one * (1f + (0.16f + 0.22f * gm.Combo) * pulse), new Vector2(x + 18f, top + 46f));
         UiTheme.Label(new Rect(x + 18f, top + 22f, sw + 24f, 46f), scoreStr, hudScore);
         GUI.matrix = saved;
         if (hasMult)
@@ -57,19 +68,23 @@ public partial class GameUI
         // ---- distance and baskets, under the score ----
         if (!Tutorial.Active)
         {
-            string trip = Metres() + " m   \u00B7   " + gm.RunBaskets + (gm.RunBaskets == 1 ? " basket" : " baskets");
+            string trip = "<color=" + NumHex + ">" + Metres() + "</color> m    <color=" + NumHex + ">" + gm.RunBaskets + "</color>" + (gm.RunBaskets == 1 ? " basket" : " baskets");
             var chip = new Rect(x, top + 84f, hudChip.CalcSize(new GUIContent(trip)).x + 30f, 42f);
             UiTheme.Pill(chip, Glass);
             GUI.Label(chip, trip, hudChip);
 
             // the coins earned in this run: a coin and +N
-            string coinTxt = "+" + gm.RunCoins;
+            string coinTxt = "<color=" + NumHex + ">+" + gm.RunCoins + "</color>";
             float coinTw = hudChip.CalcSize(new GUIContent(coinTxt)).x;
             var coinChip = new Rect(x, top + 134f, coinTw + 62f, 42f);
             UiTheme.Pill(coinChip, Glass);
-            DrawCoinIcon(new Rect(coinChip.x + 10f, coinChip.y + 8f, 26f, 26f));
+            coinTarget = new Vector2(coinChip.x + 23f, coinChip.y + 21f);
+            float cp = Mathf.Clamp01(1f - (Time.unscaledTime - coinPulseAt) / 0.28f);   // the icon pops each time a bit of dust arrives
+            if (cp > 0f) DrawDot(coinTarget, 44f + 20f * cp, new Color(1f, 0.85f, 0.25f, 0.5f * cp));
+            DrawCoinIcon(Grow(new Rect(coinChip.x + 10f, coinChip.y + 8f, 26f, 26f), 1f + 0.28f * cp));
             GUI.Label(new Rect(coinChip.x + 40f, coinChip.y, coinTw + 14f, coinChip.height), coinTxt, hudChip);
         }
+        else coinTarget = Vector2.zero;
 
         // ---- the right column: the pause button, the lives just below it, and the slow-mo meter just below the lives ----
         int total = Mathf.Max(gm.startingLives, gm.Lives);
@@ -102,10 +117,6 @@ public partial class GameUI
             GUI.matrix = saved;
         }
 
-        if (gm.Playing && gm.RunTime < 15f && !Tutorial.Active)
-            UiTheme.Label(new Rect(20, h - 110 - insetB, w - 40, 90),
-                      "Pull back and release: the paper flies the opposite way. Longer pull = further.   Tap = bell", hintStyle);
-
         // ---- toast: the latest bonus or message on a dark pill, fading out ----
         if (!string.IsNullOrEmpty(gm.Toast) && Time.unscaledTime < gm.ToastUntil)
         {
@@ -118,6 +129,11 @@ public partial class GameUI
             float th = toastStyle.CalcHeight(content, tw - 40f - extra) + 18f;
             var pill = new Rect((w - tw) * 0.5f, top + 222f, tw, th);
             Color keep = GUI.color;
+            // the popup punches in (bigger, then settles) and stays bigger the hotter the streak is
+            float pop = Mathf.Clamp01(1f - (Time.unscaledTime - gm.ToastAt) / 0.25f);
+            float popScale = (1f + 0.30f * gm.Combo) * (1f + (0.20f + 0.35f * gm.Combo) * pop * pop);
+            Matrix4x4 toastSaved = GUI.matrix;
+            GUIUtility.ScaleAroundPivot(Vector2.one * popScale, pill.center);
             GUI.color = new Color(1f, 1f, 1f, fade);
             UiTheme.Pill(pill, new Color(Glass.r, Glass.g, Glass.b, Glass.a * fade));
             float textW = Mathf.Min(tw - 40f - extra, toastStyle.CalcSize(content).x + 4f);
@@ -125,7 +141,10 @@ public partial class GameUI
             UiTheme.Label(new Rect(startX, pill.y + 9f, textW, th), gm.Toast, toastStyle);
             if (iconW > 0f) DrawIcons(gm.ToastIconKind, startX + textW + 10f, pill.center.y - iconSize * 0.5f, iconSize, fade);
             GUI.color = keep;
+            GUI.matrix = toastSaved;
         }
+
+        DrawCoinDust(w, h);
 
         // ---- pause button (top right) ----
         if (gm.Playing)
@@ -133,6 +152,110 @@ public partial class GameUI
             var rect = new Rect(w - 80f - insetR, top, 60f, 60f);
             pauseRectScreen = new Rect(rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale);
             if (UiTheme.Tinted(rect, "II", 24, UiTheme.Tone.Green)) gm.Pause();
+        }
+    }
+
+    // ---- coin dust: tiny golden specks that fly from where coins were earned up to the coin counter (no coin is drawn) ----
+
+    struct Speck { public float t0, dur, sx, sy, cx, cy, size, seed; }
+    struct DustReq { public Vector3 world; public int n; }
+    static readonly System.Collections.Generic.List<DustReq> dustReqs = new System.Collections.Generic.List<DustReq>();
+    static readonly System.Collections.Generic.List<Speck> specks = new System.Collections.Generic.List<Speck>();
+    Vector2 coinTarget;          // the centre of the coin icon in the HUD (zero when it is not shown)
+    float coinPulseAt = -10f;
+    static Texture2D dotTex;
+
+    // Called when coins are earned: the dust starts at the world position (turned into a screen spot on the next HUD draw).
+    public static void AddCoinDust(Vector3 world, int coins)
+    {
+        if (coins <= 0 || dustReqs.Count > 12) return;
+        dustReqs.Add(new DustReq { world = world, n = Mathf.Clamp(10 + coins * 4, 12, 40) });
+    }
+
+    // a soft round dot, drawn once
+    static Texture2D DotTexture()
+    {
+        if (dotTex != null) return dotTex;
+        const int n = 32;
+        dotTex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+        dotTex.wrapMode = TextureWrapMode.Clamp;
+        dotTex.hideFlags = HideFlags.HideAndDontSave;
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float dx = (x + 0.5f) / n * 2f - 1f, dy = (y + 0.5f) / n * 2f - 1f;
+                float a = Mathf.Clamp01(1f - Mathf.Sqrt(dx * dx + dy * dy));
+                dotTex.SetPixel(x, y, new Color(1f, 1f, 1f, a * a * (3f - 2f * a)));
+            }
+        dotTex.Apply();
+        return dotTex;
+    }
+
+    static void DrawDot(Vector2 c, float size, Color col)
+    {
+        Color keep = GUI.color;
+        GUI.color = col;
+        GUI.DrawTexture(new Rect(c.x - size * 0.5f, c.y - size * 0.5f, size, size), DotTexture());
+        GUI.color = keep;
+    }
+
+    void DrawCoinDust(float w, float h)
+    {
+        if (coinTarget == Vector2.zero) { dustReqs.Clear(); specks.Clear(); return; }   // (no coin counter shown: the tutorial earns no coins)
+        float now = Time.unscaledTime;
+
+        // new requests become specks: they start round the target's spot on the screen and each flies along its own gentle curve
+        if (dustReqs.Count > 0)
+        {
+            var cam = Camera.main;
+            foreach (var rq in dustReqs)
+            {
+                Vector2 s0 = new Vector2(w * 0.5f, h * 0.45f);
+                if (cam != null)
+                {
+                    Vector3 sp = cam.WorldToScreenPoint(rq.world + Vector3.up * 0.6f);
+                    if (sp.z > 0.1f) s0 = new Vector2(sp.x / scale, (Screen.height - sp.y) / scale);
+                }
+                for (int i = 0; i < rq.n; i++)
+                {
+                    var sk = new Speck();
+                    sk.t0 = now + Random.Range(0f, 0.30f);
+                    sk.dur = Random.Range(0.55f, 0.95f);
+                    sk.sx = s0.x + Random.Range(-16f, 16f);
+                    sk.sy = s0.y + Random.Range(-14f, 14f);
+                    Vector2 mid = (new Vector2(sk.sx, sk.sy) + coinTarget) * 0.5f;
+                    Vector2 dir = (coinTarget - new Vector2(sk.sx, sk.sy));
+                    Vector2 perp = dir.sqrMagnitude > 1f ? new Vector2(-dir.y, dir.x).normalized : Vector2.right;
+                    Vector2 ctrl = mid + perp * Random.Range(-70f, 70f) + new Vector2(0f, -Random.Range(10f, 60f));   // a gentle curve, bowing upwards
+                    sk.cx = ctrl.x; sk.cy = ctrl.y;
+                    sk.size = Random.Range(2.5f, 4.5f);
+                    sk.seed = Random.value * 6.28f;
+                    specks.Add(sk);
+                }
+            }
+            dustReqs.Clear();
+        }
+
+        for (int i = specks.Count - 1; i >= 0; i--)
+        {
+            Speck sk = specks[i];
+            float u = (now - sk.t0) / sk.dur;
+            if (u < 0f) continue;
+            if (u >= 1f) { coinPulseAt = now; specks.RemoveAt(i); continue; }
+            float e = u * u * (3f - 2f * u);                            // eases out of the target and into the counter
+            for (int tr = 2; tr >= 0; tr--)                             // a short fading trail behind the speck
+            {
+                float et = Mathf.Max(0f, e - tr * 0.035f);
+                float om = 1f - et;
+                float px = om * om * sk.sx + 2f * om * et * sk.cx + et * et * coinTarget.x;
+                float py = om * om * sk.sy + 2f * om * et * sk.cy + et * et * coinTarget.y;
+                float fade = Mathf.Clamp01(u * 8f) * Mathf.Clamp01((1f - u) * 6f);
+                float tw = 0.75f + 0.35f * Mathf.Sin(now * 22f + sk.seed);   // a quick twinkle
+                float a = fade * (tr == 0 ? 1f : (tr == 1 ? 0.45f : 0.2f));
+                float sz = sk.size * tw * (1f - 0.35f * tr * 0.5f);
+                DrawDot(new Vector2(px, py), sz * 3.2f, new Color(1f, 0.78f, 0.15f, 0.30f * a));    // the glow
+                DrawDot(new Vector2(px, py), sz, new Color(1f, 0.96f, 0.62f, a));                  // the bright core
+            }
         }
     }
 

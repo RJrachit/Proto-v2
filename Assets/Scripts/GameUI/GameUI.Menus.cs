@@ -16,20 +16,81 @@ public partial class GameUI
         GUI.Label(new Rect(r.x + 40f, r.y, r.width - 50f, r.height), Progress.Coins.ToString(), chipText);
     }
 
-    // a gold coin
-    static void DrawCoinIcon(Rect coin)
+    // a gold coin: a soft shadow, a dark amber rim, a bright bevel, a groove, the face with a glint, and a "$" stamped in the middle.
+    // One drawing for every place a coin shows (the HUD chip, the menu's wallet, the game-over screen), so they all match at any size.
+    // The discs are a small round texture tinted with GUI.color (the rounded "pill" box turns into a plain rectangle when it is drawn this small).
+    static GUIStyle coinDollar;
+    static Texture2D coinDisc;
+
+    static Texture2D CoinDisc()
     {
-        float k = coin.width / 28f;
-        UiTheme.Pill(coin, new Color(0.78f, 0.52f, 0.10f));
-        UiTheme.Pill(new Rect(coin.x + 3f * k, coin.y + 2f * k, 22f * k, 22f * k), UiTheme.Gold);
+        if (coinDisc != null) return coinDisc;
+        const int n = 64;
+        coinDisc = new Texture2D(n, n, TextureFormat.RGBA32, false);
+        coinDisc.wrapMode = TextureWrapMode.Clamp;
+        coinDisc.filterMode = FilterMode.Bilinear;
+        coinDisc.hideFlags = HideFlags.HideAndDontSave;
+        var px = new Color[n * n];
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float dx = x + 0.5f - n * 0.5f, dy = y + 0.5f - n * 0.5f;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                float a = Mathf.Clamp01((n * 0.5f - 0.5f - dist) / 1.3f);   // a soft edge about a pixel wide
+                px[y * n + x] = new Color(1f, 1f, 1f, a);
+            }
+        coinDisc.SetPixels(px);
+        coinDisc.Apply();
+        return coinDisc;
     }
 
-    // the logo: the newspaper emblem with the game's name; returns the y just below it
+    static void CoinDot(Rect r, Color c)
+    {
+        Color old = GUI.color;
+        GUI.color = c;
+        GUI.DrawTexture(r, CoinDisc(), ScaleMode.StretchToFill, true);
+        GUI.color = old;
+    }
+
+    static Rect CoinInset(Rect r, float d) { return new Rect(r.x + d, r.y + d, r.width - 2f * d, r.height - 2f * d); }
+
+    static void DrawCoinIcon(Rect coin)
+    {
+        float h = Mathf.Min(coin.width, coin.height);
+        coin = new Rect(coin.center.x - h * 0.5f, coin.center.y - h * 0.5f, h, h);
+
+        CoinDot(new Rect(coin.x, coin.y + h * 0.07f, h, h), new Color(0f, 0f, 0f, 0.35f));            // shadow
+        CoinDot(coin, new Color(0.60f, 0.36f, 0.04f));                                                  // rim
+        CoinDot(CoinInset(coin, h * 0.07f), new Color(1.00f, 0.80f, 0.24f));                            // bevel (bright)
+        CoinDot(CoinInset(coin, h * 0.17f), new Color(0.84f, 0.56f, 0.09f));                            // groove (darker ring)
+        CoinDot(CoinInset(coin, h * 0.21f), UiTheme.Gold);                                              // face
+        CoinDot(new Rect(coin.x + h * 0.20f, coin.y + h * 0.13f, h * 0.30f, h * 0.15f), new Color(1f, 1f, 1f, 0.55f));   // glint
+
+        if (coinDollar == null)
+        {
+            coinDollar = new GUIStyle(GUI.skin.label);
+            coinDollar.alignment = TextAnchor.MiddleCenter;
+            coinDollar.fontStyle = FontStyle.Bold;
+            coinDollar.wordWrap = false;
+            coinDollar.clipping = TextClipping.Overflow;
+            if (UiTheme.ButtonFont != null) coinDollar.font = UiTheme.ButtonFont;
+        }
+        coinDollar.fontSize = Mathf.Max(8, Mathf.RoundToInt(h * 0.64f));
+        Rect tr = new Rect(coin.x, coin.y + h * 0.02f, h, h);
+        Color keep = coinDollar.normal.textColor;
+        coinDollar.normal.textColor = new Color(1f, 0.95f, 0.65f, 0.85f);                               // a light edge below the stamp
+        GUI.Label(new Rect(tr.x, tr.y + h * 0.05f, tr.width, tr.height), "$", coinDollar);
+        coinDollar.normal.textColor = new Color(0.50f, 0.28f, 0.02f);                                   // the stamp
+        GUI.Label(tr, "$", coinDollar);
+        coinDollar.normal.textColor = keep;
+    }
+
+    // the logo: the newspaper-bundle emblem above the game's name; returns the y just below it
     float DrawLogo(float cx, float y, float titleSize)
     {
         float t = Time.unscaledTime;
         float k = titleSize / 92f;
-        UiTheme.Newspaper(new Vector2(cx, y + 60f * k + Mathf.Sin(t * 1.7f) * 3f), 100f * k, -9f + Mathf.Sin(t * 1.3f) * 2.5f);
+        ParcelLogo.Draw(new Vector2(cx, y + 62f * k + Mathf.Sin(t * 1.7f) * 3f), 130f * k, -7f + Mathf.Sin(t * 1.3f) * 2.5f);   // the low-poly newspaper bundle (the old folded newspaper is UiTheme.Newspaper)
         titleGold.fontSize = Mathf.RoundToInt(92f * k);
         titleCream.fontSize = Mathf.RoundToInt(74f * k);
         float w = 700f;
@@ -91,7 +152,11 @@ public partial class GameUI
         if (portrait)
         {
             cx = w * 0.5f;
-            y = DrawLogo(cx, 56f + insetT, 92f) + 14f;
+            // the logo and the three buttons are one block, centred in the free height (not stuck to the top with an empty bottom)
+            const float blockH = 300f + 14f + 96f + 16f + 66f + 12f + 66f;
+            float free = h - insetT - insetB;
+            float top = Mathf.Max(56f + insetT, insetT + (free - blockH) * 0.5f);
+            y = DrawLogo(cx, top, 92f) + 14f;
         }
         else
         {
@@ -157,14 +222,14 @@ public partial class GameUI
             GUI.Label(badge, "Best Score " + gm.HighScore, T(20, TextAnchor.MiddleCenter, UiTheme.Cream));
         }
 
-        // three small stats
+        // four small stats
         float sy = card.y + 296f;
-        float colw = (card.width - 44f) / 3f;
-        string[] names = { "DISTANCE", "TIME", "COINS" };
-        string[] vals = { Metres() + " m", Clock(gm.RunTime), "+" + gm.RunCoins };
-        for (int i = 0; i < 3; i++)
+        float colw = (card.width - 44f) / 4f;
+        string[] names = { "DISTANCE", "BASKETS", "TIME", "COINS" };
+        string[] vals = { Metres() + " m", gm.RunBaskets.ToString(), Clock(gm.RunTime), "+" + gm.RunCoins };
+        for (int i = 0; i < 4; i++)
         {
-            var cell = new Rect(card.x + 22f + i * colw, sy, colw - 8f, 74f);
+            var cell = new Rect(card.x + 22f + i * colw, sy, colw - 6f, 74f);
             UiTheme.Pill(cell, new Color(1f, 1f, 1f, 0.07f));
             GUI.Label(new Rect(cell.x, cell.y + 8f, cell.width, 18f), names[i], statLabel);
             GUI.Label(new Rect(cell.x, cell.y + 26f, cell.width, 40f), vals[i], statValue);

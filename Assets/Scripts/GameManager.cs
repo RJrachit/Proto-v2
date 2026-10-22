@@ -51,6 +51,14 @@ public class GameManager : MonoBehaviour
     public float ToastUntil { get; private set; }
     public enum ToastIcon { None, Fire, FireDouble, Alert }   // drawn after the toast text (GameUI.Hud)
     public ToastIcon ToastIconKind { get; private set; }
+    public float ToastAt { get; private set; }     // when the toast appeared (the HUD pops it in from then)
+    public Vector3 ScorePos { get; private set; }  // where the latest scoring hit happened (the coin dust starts there)
+    public void NoteScorePos(Vector3 p) { ScorePos = p; }
+
+    // How hot the streak is, 0..1 (more with the Dev menu's combo slider): a long streak makes every hit feel bigger.
+    public float Combo { get { return Mathf.Clamp(Streak / 15f, 0f, 1f) * GameConfig.ComboJuice; } }
+    // The hit chime climbs a semitone for every hit in the streak, up to an octave.
+    float ComboPitch() { return Mathf.Pow(1.0595f, Mathf.Min(Streak, 12)); }
 
     // 0..1, drained while aiming in slow motion (see PaperThrower)
     public float SlowMoMeter = 1f;
@@ -188,7 +196,6 @@ public class GameManager : MonoBehaviour
         State = RunState.Playing;
 
         int runs = PlayerPrefs.GetInt("Runs", 0);
-        if (runs < 3) ShowToast("Throw at marked houses. Pull back: the paper flies the opposite way, longer pull = farther. Tap = bell.", 5f);
         PlayerPrefs.SetInt("Runs", runs + 1);
     }
 
@@ -295,8 +302,9 @@ public class GameManager : MonoBehaviour
                      : "Nice! +";
         if (label != null) ShowToast(label + gained + (suffix ?? ""));
         StreakToast();
-        if (kind == HouseTarget.Kind.Hoop) Juice.HoopBlast(pos, 1f + Mathf.Min(Streak, 12) * 0.06f);
-        else Juice.Delivery(pos, 1f + Mathf.Min(Streak, 12) * 0.06f);
+        if (kind == HouseTarget.Kind.Hoop) Juice.HoopBlast(pos, ComboPitch(), Combo);
+        else Juice.Delivery(pos, ComboPitch(), Combo);
+        if (Streak > 0 && Streak % 5 == 0 && GameConfig.ComboJuice > 0f) Juice.ComboMilestone(pos, Streak);
 
         if (Tutorial.Active && completes) Tutorial.OnDelivered(kind);
     }
@@ -343,8 +351,9 @@ public class GameManager : MonoBehaviour
         points *= Multiplier;   // every point is multiplied by the streak
         Score += points;
         ShowToast(label + points);
-        if (label.StartsWith("Swish")) Juice.HoopBlast(pos, 1.3f);
-        else Juice.Delivery(pos, 1.3f);
+        if (label.StartsWith("Swish")) Juice.HoopBlast(pos, ComboPitch(), Combo);
+        else Juice.Delivery(pos, ComboPitch(), Combo);
+        if (Streak > 0 && Streak % 5 == 0 && GameConfig.ComboJuice > 0f) Juice.ComboMilestone(pos, Streak);
     }
 
     // A basket was scored (each ring pays once): it is worth 3 coins.
@@ -360,6 +369,7 @@ public class GameManager : MonoBehaviour
     {
         if (!Playing || Tutorial.Active || n <= 0) return;
         RunCoins += n;
+        if (GameConfig.CoinDust) GameUI.AddCoinDust(ScorePos, n);   // tiny golden dust flies from where it was earned up to the coin counter
     }
 
     // A trick shot (a bounce off anything but a backboard or ring, then through a ring): the bonus comes with a big fiery explosion.
@@ -425,6 +435,7 @@ public class GameManager : MonoBehaviour
         Toast = message;
         ToastIconKind = icon;
         ToastUntil = Time.unscaledTime + seconds;
+        ToastAt = Time.unscaledTime;
     }
 
     // A mistake costs lives. A short grace period stops one collision from costing several.

@@ -396,7 +396,7 @@ public partial class Tutorial
 
         startPx = new Vector2(cGui.x * scale, Screen.height - cGui.y * scale);
         float frac = ghostThrower.PullFractionFor(longPower, startPx, drag);
-        float lenGui = frac * Mathf.Min(Screen.width, Screen.height) / scale;
+        float lenGui = frac * ghostThrower.RefSize / scale;
         Vector2 rGui = cGui + new Vector2(drag.x, -drag.y) * lenGui;
         releasePx = new Vector2(rGui.x * scale, Screen.height - rGui.y * scale);
         startR = StartRadiusUi * scale;
@@ -688,7 +688,7 @@ public partial class Tutorial
         return UiTheme.Tinted(b, text, 30, UiTheme.Tone.Green);
     }
 
-    // After the long throw: the ground-floor prompt, and the praise.
+    // After the long throw: the ground-floor prompt (no praise word: it is not shown any more).
     void DrawLongAfter(float w, float h, float scale, float insetT)
     {
         cardRectScreen = new Rect(0f, 0f, 0f, 0f);
@@ -701,16 +701,6 @@ public partial class Tutorial
             Rect card = new Rect((w - cw) * 0.5f, top + 6f, cw, 150f);
             DrawNote(card, "Yard area", "Hit any glowing spot.", 62f);
             cardRectScreen = new Rect(card.x * scale, card.y * scale, card.width * scale, card.height * scale);
-        }
-
-        if (!string.IsNullOrEmpty(praise) && Time.unscaledTime < praiseUntil)
-        {
-            float a = Mathf.Clamp01((praiseUntil - Time.unscaledTime) * 2.5f);
-            float rise = (1f - Mathf.Clamp01((praiseUntil - Time.unscaledTime) / 1.4f)) * 30f;
-            Color keep = praiseS.normal.textColor;
-            praiseS.normal.textColor = new Color(keep.r, keep.g, keep.b, a);
-            UiTheme.Label(new Rect(0f, top + 150f - rise, w, 64f), praise, praiseS, 2f);
-            praiseS.normal.textColor = keep;
         }
     }
 }

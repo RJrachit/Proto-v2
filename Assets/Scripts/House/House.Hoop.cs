@@ -11,6 +11,8 @@ public partial class House
     // that lands on the slope towards the ring slides off into the ring (plain physics, see SetUpRoofShot). The roof then becomes a gable that
     // stands higher, and the ring hangs lower, just below the roof's low edge.
     bool wallHoop;
+    // Every backboard is the same size and stands the same way over its ring: 1.6 wide, 1.05 high, its centre 0.4 above the ring.
+    const float BoardW = 1.6f, BoardH = 1.05f, BoardUp = 0.4f;
     const float RoofRingGap = 1.72f;       // ring centre from the door centre when it stands beside the porch roof
 
     void LayoutWallHoop(float L, float doorZ, bool wallMail, float mailZ, bool customer)
@@ -58,7 +60,7 @@ public partial class House
         float s = side;
         float ringY = combo ? 2.45f : 3.1f;
         float ringX = s * 7.88f;   // 7 cm clear of the board, like the other hoops
-        WallBoard(ringY, combo ? 0.28f : 0.4f, combo ? 0.8f : 1.05f, hz);   // (the combo board is lower and shorter, so it clears the ground-floor windows)
+        WallBoard(ringY, BoardUp, BoardH, hz);   // (the same board everywhere, the porch-roof combo included)
         RingParts(ringX, ringY, hz);
 
         SetZone(hoopZone, new Vector3(ringX, ringY, hz), new Vector3(0.9f, 0.6f, 0.9f));
@@ -93,7 +95,7 @@ public partial class House
     void BoardMarks(Vector3 c, float bh, bool thinX)
     {
         BoardGlow(c, bh, thinX);
-        Part(c, thinX ? new Vector3(0.12f, bh + 0.07f, 1.68f) : new Vector3(1.68f, bh + 0.07f, 0.12f), BoardFrameCol, false);
+        Part(c, thinX ? new Vector3(0.08f, bh + 0.07f, 1.68f) : new Vector3(1.68f, bh + 0.07f, 0.08f), BoardFrameCol, false);   // (thinner than the board, so only a rim shows round it, never over its face)
         Part(c + new Vector3(0f, -0.12f, 0f), thinX ? new Vector3(0.14f, bh * 0.48f, 0.7f) : new Vector3(0.7f, bh * 0.48f, 0.14f), BoardSquareCol, false);
     }
 
@@ -108,11 +110,34 @@ public partial class House
             SoftRim(rim);
             GlowRim(rim);   // (orange and bright: the ring must stand out)
         }
-        for (int k = 0; k < 4; k++)
+        NetParts(x, y, z);
+    }
+
+    // The net under a ring (not solid: papers pass through): a hanging mesh of crossing strings that narrows towards the bottom, and a small
+    // ring of cord round the bottom. Every hoop uses this one, so the nets all look the same.
+    void NetParts(float x, float y, float z)
+    {
+        const float topR = 0.40f, botR = 0.22f, drop = 0.52f;
+        Color cord = new Color(0.97f, 0.97f, 0.95f);
+        const int n = 8;
+        for (int set = 0; set < 2; set++)                       // two sets of strings, slanting opposite ways, so they cross in diamonds
+            for (int k = 0; k < n; k++)
+            {
+                float a0 = (k * 360f / n) * Mathf.Deg2Rad;
+                float a1 = (k * 360f / n + (set == 0 ? 1f : -1f) * 360f / n) * Mathf.Deg2Rad;
+                Vector3 top = new Vector3(x + Mathf.Cos(a0) * topR, y - 0.04f, z + Mathf.Sin(a0) * topR);
+                Vector3 bot = new Vector3(x + Mathf.Cos(a1) * botR, y - drop, z + Mathf.Sin(a1) * botR);
+                Vector3 d = bot - top;
+                float len = d.magnitude;
+                Part((top + bot) * 0.5f, new Vector3(0.028f, len, 0.028f), cord, false, Quaternion.FromToRotation(Vector3.up, d / len).eulerAngles);
+            }
+        for (int k = 0; k < n; k++)                              // the cord round the bottom
         {
-            float a = (k * 90f + 45f) * Mathf.Deg2Rad;
-            Part(new Vector3(x + Mathf.Cos(a) * 0.38f, y - 0.27f, z + Mathf.Sin(a) * 0.38f),
-                 new Vector3(0.03f, 0.5f, 0.03f), Color.white, false);
+            float a = (k * 360f / n) * Mathf.Deg2Rad;
+            float chord = 2f * botR * Mathf.Sin(Mathf.PI / n);
+            float rc = botR * Mathf.Cos(Mathf.PI / n);
+            float am = a + Mathf.PI / n;
+            Part(new Vector3(x + Mathf.Cos(am) * rc, y - drop, z + Mathf.Sin(am) * rc), new Vector3(0.04f, 0.04f, chord + 0.02f), cord, false, new Vector3(0f, -am * Mathf.Rad2Deg, 0f));
         }
     }
 
@@ -122,6 +147,7 @@ public partial class House
     {
         var gm = GameManager.Instance;
         if (gm == null) return;
+        gm.NoteScorePos(pos);   // (where the coin dust starts)
         if (Subscriber)
         {
             int before = gm.Streak;

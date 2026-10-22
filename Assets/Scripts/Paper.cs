@@ -211,6 +211,14 @@ public class Paper : MonoBehaviour
             {
                 // First landing: paper does not slide or bounce much
                 Vector3 v = lastVelocity;
+                if (collision.collider.GetComponent<ChuteSurface>() != null)
+                {
+                    // a porch roof: the paper keeps its speed along the slope (no skid, no bounce) and runs on down it
+                    rb.linearVelocity = Vector3.ClampMagnitude(Vector3.ProjectOnPlane(v, n), GameConfig.RoofMaxSpeed);
+                    rb.angularVelocity *= 0.3f;
+                    landed = true;
+                    return;
+                }
                 var sticky = collision.collider.GetComponent<StickySurface>();
                 float keep = sticky != null ? sticky.skidKeep : SkidKeep;
                 rb.linearVelocity = new Vector3(v.x * keep, Mathf.Abs(v.y) * LandBounce, v.z * keep);
@@ -218,6 +226,20 @@ public class Paper : MonoBehaviour
             }
             landed = true;
         }
+    }
+
+    // A paper lying on a porch roof gets an extra push down the slope, so it slides off quickly.
+    void OnCollisionStay(Collision collision)
+    {
+        if (done || rb == null || GameConfig.RoofSlideAccel <= 0f) return;
+        if (collision.collider.GetComponent<ChuteSurface>() == null) return;
+        ContactPoint contact = collision.GetContact(0);
+        Vector3 n = contact.normal;
+        if (Vector3.Dot(n, transform.position - contact.point) < 0f) n = -n;
+        if (n.y < 0.3f || n.y > 0.995f) return;   // (a wall, or a flat top: nothing to slide down)
+        Vector3 down = Vector3.ProjectOnPlane(Vector3.down, n).normalized;
+        rb.AddForce(down * GameConfig.RoofSlideAccel, ForceMode.Acceleration);
+        if (rb.linearVelocity.sqrMagnitude > GameConfig.RoofMaxSpeed * GameConfig.RoofMaxSpeed) rb.linearVelocity = rb.linearVelocity.normalized * GameConfig.RoofMaxSpeed;
     }
 
     // The tutorial's basket shot: a paper that touches the backboard is sent in a short arc to the middle of the ring and drops through it.

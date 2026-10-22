@@ -23,12 +23,22 @@ public partial class GameUI : MonoBehaviour
         return pauseRectScreen.Contains(p) || DevMenu.BlocksInput(p) || OptionsMenu.Open || Tutorial.BlocksInput(p);
     }
 
+    // the game's rounded cartoon font (Lilita One, see UiTheme.ButtonFont) for a text style; it has no bold of its own, so it is drawn plain
+    static void UseGameFont(GUIStyle s)
+    {
+        Font f = UiTheme.ButtonFont;
+        if (f == null) return;
+        s.font = f;
+        s.fontStyle = FontStyle.Normal;
+    }
+
     static GUIStyle MakeText(GUIStyle basis, int size, TextAnchor anchor, Color color)
     {
         var s = new GUIStyle(basis) { fontSize = size, alignment = anchor, fontStyle = FontStyle.Bold };
         s.normal.textColor = color;
         s.wordWrap = false;
         s.clipping = TextClipping.Overflow;
+        UseGameFont(s);
         return s;
     }
 
@@ -61,10 +71,18 @@ public partial class GameUI : MonoBehaviour
         button = new GUIStyle(GUI.skin.button) { fontSize = 32, fontStyle = FontStyle.Bold };
         toastStyle = new GUIStyle(center) { fontSize = 28, wordWrap = true, alignment = TextAnchor.UpperCenter };
         hintStyle = new GUIStyle(small) { wordWrap = true, alignment = TextAnchor.LowerCenter };
+        foreach (var s in new[] { label, center, right, small, tiny, big, toastStyle, hintStyle }) UseGameFont(s);   // (the styles used directly, not through MakeText)
 
         // menu text
         titleGold = MakeText(label, 92, TextAnchor.MiddleCenter, UiTheme.Gold);
         titleCream = MakeText(label, 74, TextAnchor.MiddleCenter, UiTheme.Cream);
+        // the game's name uses the same font as the buttons (Lilita One, see UiTheme.ButtonFont). It has no bold of its own, so it is drawn plain (a faked bold looks smeared).
+        var titleFont = UiTheme.ButtonFont;
+        if (titleFont != null)
+        {
+            titleGold.font = titleFont; titleGold.fontStyle = FontStyle.Normal;
+            titleCream.font = titleFont; titleCream.fontStyle = FontStyle.Normal;
+        }
         tagline = MakeText(label, 20, TextAnchor.MiddleCenter, UiTheme.Dim);
         heading = MakeText(label, 21, TextAnchor.MiddleLeft, UiTheme.Gold);
         rowText = MakeText(label, 21, TextAnchor.MiddleLeft, UiTheme.Cream);

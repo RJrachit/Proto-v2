@@ -171,18 +171,38 @@ public class DevMenu : MonoBehaviour
         thrower.assistRange = GameConfig.AssistRange = Slider("Assist range", thrower.assistRange, 0.5f, 8f, "0.0");
         thrower.assistStrength = GameConfig.AssistStrength = Slider("Assist strength", thrower.assistStrength, 0f, 1f, "0.00");
         GameConfig.RainThrowPenalty = Slider("Rain throw penalty", GameConfig.RainThrowPenalty, 0f, 0.3f, "0.00");   // share of the distance lost in the rain; the aim guide does not change
+        // wall bounce: applies at once to every wall, pillar, fence and car in the scene (every surface that has the old wall settings), and to every one built later
+        float oldWB = GameConfig.WallBounce, oldWS = GameConfig.WallSlideKeep;
+        GameConfig.WallBounce = Slider("Wall bounce (0 = dead, 1 = springy)", GameConfig.WallBounce, 0f, 1f, "0.00");
+        GameConfig.WallSlideKeep = Slider("Wall slide kept (sideways speed after a hit)", GameConfig.WallSlideKeep, 0f, 1f, "0.00");
+        if (!Mathf.Approximately(oldWB, GameConfig.WallBounce) || !Mathf.Approximately(oldWS, GameConfig.WallSlideKeep))
+            foreach (var bs in Object.FindObjectsByType<BankSurface>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (!bs.hoopPart && Mathf.Approximately(bs.restitution, oldWB) && Mathf.Approximately(bs.tangentKeep, oldWS))
+                {
+                    bs.restitution = GameConfig.WallBounce;
+                    bs.tangentKeep = GameConfig.WallSlideKeep;
+                }
         GameConfig.BoardBounce = Slider("Backboard bounce", GameConfig.BoardBounce, 0f, 0.6f, "0.00");   // applies to houses placed after the change
         GameConfig.BoardSlideKeep = Slider("Backboard slide kept", GameConfig.BoardSlideKeep, 0f, 1f, "0.00");
         GameConfig.RimBounce = Slider("Hoop ring bounce", GameConfig.RimBounce, 0f, 0.4f, "0.00");
         GameConfig.RimSlideKeep = Slider("Hoop ring slide kept", GameConfig.RimSlideKeep, 0f, 1f, "0.00");
         GameConfig.ChuteTilt = Slider("Roof tilt (degrees)", GameConfig.ChuteTilt, 0f, 30f, "0");   // applies to roofs set up after the change
         GameConfig.RoofFriction = Slider("Roof friction (low = slippery)", GameConfig.RoofFriction, 0f, 0.8f, "0.00");
+        GameConfig.RoofMaxSpeed = Slider("Roof top speed (m/s)", GameConfig.RoofMaxSpeed, 1f, 12f, "0.0");
+        GameConfig.RoofSlideAccel = Slider("Roof slide push (higher = quicker)", GameConfig.RoofSlideAccel, 0f, 25f, "0.0");
         thrower.maxDistance = GameConfig.MaxThrowDistance = Slider("Max throw dist", thrower.maxDistance, 8f, 45f, "0.0");
         thrower.minDistance = GameConfig.MinThrowDistance = Slider("Min throw dist", thrower.minDistance, 1f, 10f, "0.0");
         thrower.launchAngleLight = GameConfig.LaunchAngleLight = Slider("Angle, light pull", thrower.launchAngleLight, 20f, 75f, "0");
         thrower.launchAngleFull = GameConfig.LaunchAngleFull = Slider("Angle, full pull", thrower.launchAngleFull, 30f, 80f, "0");
         thrower.fullPowerDrag = GameConfig.FullPowerDrag = Slider("Full-power pull", thrower.fullPowerDrag, 0.15f, 0.6f, "0.00");
-        thrower.powerCurve = GameConfig.PowerCurve = Slider("Power curve", thrower.powerCurve, 0.5f, 2f, "0.00");
+        GameConfig.MaxPullMm = Slider("Max finger pull (mm, 0 = no limit)", GameConfig.MaxPullMm, 0f, 60f, "0");
+        GameConfig.MinFullPowerDrag = Slider("Full pull near a screen edge (min)", GameConfig.MinFullPowerDrag, 0.12f, 0.45f, "0.00");
+        thrower.powerCurve = GameConfig.PowerCurve = Slider("Power curve (above 1 = finer short throws)", thrower.powerCurve, 0.5f, 3f, "0.00");
+        thrower.deadZone = GameConfig.DeadZone = Slider("Min pull (shorter cancels)", thrower.deadZone, 0.03f, 0.2f, "0.00");
+        GameConfig.ScreenTrueAim = Toggle("Aim looks exactly opposite the drag on screen (perspective fix)", GameConfig.ScreenTrueAim);
+        GameConfig.CancelBikePush = Toggle("Cancel the bike's push (the paper flies exactly opposite the pull)", GameConfig.CancelBikePush);
+        GameConfig.AimSteady = Slider("Aim steadiness on short pulls (0 = off)", GameConfig.AimSteady, 0f, 0.9f, "0.00");
+        GameConfig.AimSteadyBelow = Slider("Steadiness applies below pull", GameConfig.AimSteadyBelow, 0.08f, 0.4f, "0.00");
         bool sling = Toggle("Controls: pull back to throw (off = drag toward the target)", thrower.slingshotStyle);
         if (sling != thrower.slingshotStyle)
         {
@@ -318,6 +338,24 @@ public class DevMenu : MonoBehaviour
 
     void LookTab()
     {
+        GUILayout.Label("Performance", lab);
+        float fpsF = Slider("Target FPS (30 / 60 / 90 / 120)", GameConfig.TargetFps, 30f, 120f, "0");
+        int fps = fpsF < 45f ? 30 : (fpsF < 75f ? 60 : (fpsF < 105f ? 90 : 120));
+        if (fps != GameConfig.TargetFps) { GameConfig.TargetFps = fps; Application.targetFrameRate = fps; }
+        GameConfig.ComboJuice = Slider("Combo juice (0 = off, 1 = normal, 2 = a lot)", GameConfig.ComboJuice, 0f, 2f, "0.00");
+        GameConfig.CoinDust = Toggle("Coin dust flies up to the coin counter", GameConfig.CoinDust);
+        GameConfig.AimDropLine = Toggle("Aim: line from arc end down to the arrow", GameConfig.AimDropLine);
+        GameConfig.ArrowHeight = Slider("Aim arrow height (m, 0 = follow ground)", GameConfig.ArrowHeight, 0f, 1f, "0.00");
+        float rs = Slider("Render scale (lower = faster, softer)", GameConfig.RenderScale, 0.5f, 1f, "0.00");
+        float msaaF = Slider("Edge smoothing MSAA (1 = off, 2, 4)", GameConfig.MsaaSamples, 1f, 4f, "0");
+        int msaa = msaaF < 1.5f ? 1 : (msaaF < 3f ? 2 : 4);
+        if (!Mathf.Approximately(rs, GameConfig.RenderScale) || msaa != GameConfig.MsaaSamples)
+        {
+            GameConfig.RenderScale = rs;
+            GameConfig.MsaaSamples = msaa;
+            MobileSetup.ApplyEdgeSmoothing(false);
+            QualitySettings.antiAliasing = msaa > 1 ? msaa : 0;
+        }
         GUILayout.Label("Time of day", lab);
         int ti = GUILayout.Toolbar(DayCycle.ForcePhase + 2, TimeNames, btn, GUILayout.Height(44));
         DayCycle.ForcePhase = ti - 2;

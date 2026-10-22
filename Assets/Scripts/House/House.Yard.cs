@@ -71,11 +71,11 @@ public partial class House
                 float ringX = s * 7.5f;
                 const float ringY = 2.9f;
                 Cube(cubeN++, new Vector3(ringX - s * 0.8f, 1.6f, hz), new Vector3(0.15f, 3.2f, 0.15f), new Color(0.45f, 0.45f, 0.48f));
-                Cube(cubeN++, new Vector3(ringX - s * 0.6f, 3.2f, hz), new Vector3(0.1f, 1.1f, 1.6f), Color.white);
+                Cube(cubeN++, new Vector3(ringX - s * 0.6f, ringY + BoardUp, hz), new Vector3(0.1f, BoardH, BoardW), Color.white);
                 if (propCubes != null && cubeN - 1 < propCubes.Length) SoftBoard(propCubes[cubeN - 1]);
-                BoardGlow(new Vector3(ringX - s * 0.6f, 3.2f, hz), 1.1f, true);
-                AirCube(cubeN++, new Vector3(ringX - s * 0.6f, 3.2f, hz), new Vector3(0.12f, 1.17f, 1.68f), new Color(0.25f, 0.28f, 0.34f));    // dark edge, as on every board
-                AirCube(cubeN++, new Vector3(ringX - s * 0.6f, 3.08f, hz), new Vector3(0.14f, 0.53f, 0.7f), new Color(0.55f, 0.65f, 0.80f));   // the shooting square
+                BoardGlow(new Vector3(ringX - s * 0.6f, ringY + BoardUp, hz), BoardH, true);
+                AirCube(cubeN++, new Vector3(ringX - s * 0.6f, ringY + BoardUp, hz), new Vector3(0.08f, BoardH + 0.07f, BoardW + 0.08f), new Color(0.25f, 0.28f, 0.34f));    // dark edge round the board (thinner than it, so it never covers the face)
+                AirCube(cubeN++, new Vector3(ringX - s * 0.6f, ringY + BoardUp - 0.12f, hz), new Vector3(0.14f, BoardH * 0.48f, 0.7f), new Color(0.55f, 0.65f, 0.80f));   // the shooting square
                 for (int k = 0; k < 8; k++)
                 {
                     float a = k * 45f * Mathf.Deg2Rad;
@@ -83,12 +83,7 @@ public partial class House
                          new Vector3(0.10f, 0.10f, 0.38f), Prim.RimOrange, new Vector3(0f, -k * 45f, 0f));
                     if (propCubes != null && cubeN - 1 < propCubes.Length) { SoftRim(propCubes[cubeN - 1]); GlowRim(propCubes[cubeN - 1]); }   // solid but dead, like every hoop ring; orange and bright
                 }
-                for (int k = 0; k < 4; k++)
-                {
-                    float a = (k * 90f + 45f) * Mathf.Deg2Rad;
-                    AirCube(cubeN++, new Vector3(ringX + Mathf.Cos(a) * 0.38f, ringY - 0.27f, hz + Mathf.Sin(a) * 0.38f),
-                         new Vector3(0.03f, 0.5f, 0.03f), Color.white);
-                }
+                NetParts(ringX, ringY, hz);   // the same net as every other hoop (see House.Hoop.cs)
                 if (hoopZone != null && hoopSnapT != null)
                 {
                     SetZone(hoopZone, new Vector3(ringX, ringY, hz), Tutorial.Active ? new Vector3(2.2f, 0.9f, 2.2f) : new Vector3(0.9f, 0.6f, 0.9f));

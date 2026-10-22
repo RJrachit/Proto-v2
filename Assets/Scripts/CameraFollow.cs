@@ -182,11 +182,12 @@ public class CameraFollow : MonoBehaviour
         // shorter on screen (the zoom magnifies the gap between the bike and the landing ball), which read as the throw changing.
         bool aimingSlow = gm != null && gm.Playing && PaperThrower.Dragging;
         // the zoom is smoothed by its own spring (quick in, a slower glide out) so it never jumps when you let go
-        float wantZoom = aimingSlow ? Mathf.Lerp(aimZoomLight, aimZoomFull, Mathf.Clamp01(PaperThrower.AimPower)) : 0f;
+        bool slowPower = PowerUps.Active(PowerKind.SlowZoom);
+        float wantZoom = aimingSlow ? Mathf.Lerp(aimZoomLight, aimZoomFull, Mathf.Clamp01(PaperThrower.AimPower)) * (slowPower ? GameConfig.PowerZoomMult : 1f) : 0f;
         if (!aimingSlow) wantZoom = 0f;
         else if (!PaperThrower.AimActive) wantZoom = aimZoom;     // a pull that is too short to throw: hold the zoom as it is
         bool zoomFresh = aimZoom < 0.003f;
-        aimZoom = Mathf.SmoothDamp(aimZoom, wantZoom, ref aimZoomVel, wantZoom > aimZoom ? 0.12f : 0.5f, float.MaxValue, Time.unscaledDeltaTime);
+        aimZoom = Mathf.SmoothDamp(aimZoom, wantZoom, ref aimZoomVel, wantZoom > aimZoom ? 0.12f : (slowPower ? 0.9f : 0.5f), float.MaxValue, Time.unscaledDeltaTime);
         if (aimingSlow && PaperThrower.AimActive) aimPointLast = PaperThrower.AimPoint;
         float targetFov = fov + (hot ? hotFovBonus : 0f) - kickShown * GameConfig.KickFov;
         baseFovNow = baseFovNow <= 0f ? targetFov : Mathf.Lerp(baseFovNow, targetFov, Time.unscaledDeltaTime * 6f);

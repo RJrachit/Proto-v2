@@ -97,6 +97,7 @@ public partial class GameUI
 
         GUI.Label(new Rect(colX + 4f, top + 118f, colW, 14f), "SLOW-MO", hudCap);
         UiTheme.Bar(new Rect(colX, top + 134f, colW, 12f), gm.SlowMoMeter, new Color(1f, 0.85f, 0.2f));
+        DrawPowerIcons(colX, top + 158f, colW);
 
         // ---- streak banner (a gold pill that beats; orange for the super streak) ----
         if (gm.HotStreak)
@@ -107,7 +108,7 @@ public partial class GameUI
             float textW = hudBanner.CalcSize(new GUIContent(txt)).x;
             float contentW = textW + 6f + IconsWidth(flames, flameSize);
             float bw = Mathf.Min(w - 40f, contentW + 44f);
-            var banner = new Rect((w - bw) * 0.5f, top + 164f, bw, 42f);
+            var banner = new Rect(CentreClearOfColumn(w, bw, colX, x), top + 164f, bw, 42f);
             saved = GUI.matrix;
             GUIUtility.ScaleAroundPivot(Vector2.one * (1f + 0.05f * Mathf.Sin(Time.unscaledTime * 8f)), banner.center);
             UiTheme.Pill(banner, gm.SuperStreak ? new Color(1f, 0.50f, 0.18f) : UiTheme.Gold);
@@ -126,8 +127,10 @@ public partial class GameUI
             float iconW = IconsWidth(gm.ToastIconKind, iconSize);
             float extra = iconW > 0f ? iconW + 10f : 0f;   // (room for the icon(s) after the words)
             float tw = Mathf.Min(w - 40f, toastStyle.CalcSize(content).x + extra + 56f);
+            tw = Mathf.Min(tw, Mathf.Max(160f, (colX - 12f - x) / (1f + 0.30f * gm.Combo)));   // (never wider than the room left of the right-hand column)
             float th = toastStyle.CalcHeight(content, tw - 40f - extra) + 18f;
-            var pill = new Rect((w - tw) * 0.5f, top + 222f, tw, th);
+            float settledW = tw * (1f + 0.30f * gm.Combo);   // (it settles bigger the hotter the streak is: keep that off the right-hand column too)
+            var pill = new Rect(CentreClearOfColumn(w, settledW, colX, x) + (settledW - tw) * 0.5f, top + 222f, tw, th);
             Color keep = GUI.color;
             // the popup punches in (bigger, then settles) and stays bigger the hotter the streak is
             float pop = Mathf.Clamp01(1f - (Time.unscaledTime - gm.ToastAt) / 0.25f);
@@ -152,6 +155,119 @@ public partial class GameUI
             var rect = new Rect(w - 80f - insetR, top, 60f, 60f);
             pauseRectScreen = new Rect(rect.x * scale, rect.y * scale, rect.width * scale, rect.height * scale);
             if (UiTheme.Tinted(rect, "II", 24, UiTheme.Tone.Green)) gm.Pause();
+        }
+    }
+
+    // Left edge for a centred banner of width bw that keeps off the right-hand column (pause, lives, slow-mo and power-up icons, which start at colX).
+    // On a wide screen it stays centred; on a narrow one it slides left, never past the left margin.
+    static float CentreClearOfColumn(float w, float bw, float colX, float leftMargin)
+    {
+        float left = (w - bw) * 0.5f;
+        float maxRight = colX - 12f;
+        if (left + bw > maxRight) left = maxRight - bw;
+        return Mathf.Max(leftMargin, left);
+    }
+
+    // ---- power-up icons (under the slow-mo bar): one per running power-up, bright when it starts and fading from the top down as the timer runs out ----
+
+    static Texture2D discTex;
+    static Texture2D DiscTexture()
+    {
+        if (discTex != null) return discTex;
+        const int n = 64;
+        discTex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+        discTex.wrapMode = TextureWrapMode.Clamp;
+        discTex.filterMode = FilterMode.Bilinear;
+        discTex.hideFlags = HideFlags.HideAndDontSave;
+        for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float dx = (x + 0.5f) / n * 2f - 1f, dy = (y + 0.5f) / n * 2f - 1f;
+                float a = Mathf.Clamp01((1f - Mathf.Sqrt(dx * dx + dy * dy)) * n * 0.5f * 0.9f);   // a crisp edge, about one pixel soft
+                discTex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+            }
+        discTex.Apply();
+        return discTex;
+    }
+
+    static void FillRect(Rect r, Color c)
+    {
+        Color keep = GUI.color;
+        GUI.color = c;
+        GUI.DrawTexture(r, Texture2D.whiteTexture);
+        GUI.color = keep;
+    }
+
+    static void FillDisc(Rect r, Color c)
+    {
+        Color keep = GUI.color;
+        GUI.color = c;
+        GUI.DrawTexture(r, DiscTexture());
+        GUI.color = keep;
+    }
+
+    // One power-up icon in the box r (drawn on a 100 x 100 plan). bright = in colour; otherwise a dull, dark version of the same picture.
+    static void DrawPowerIcon(Rect r, PowerKind kind, bool bright)
+    {
+        float u = r.width / 100f;
+        Color dull = new Color(0.20f, 0.21f, 0.27f);
+        Color outline = bright ? new Color(0.07f, 0.08f, 0.16f) : new Color(0.10f, 0.11f, 0.15f);
+        Color body = bright ? PowerUps.KindColor(kind) : Color.Lerp(PowerUps.KindColor(kind), dull, 0.85f);
+        Color white = bright ? Color.white : new Color(0.42f, 0.43f, 0.50f);
+        System.Func<float, float, float, float, Rect> R = (x0, y0, x1, y1) => new Rect(r.x + x0 * u, r.y + y0 * u, (x1 - x0) * u, (y1 - y0) * u);
+        FillDisc(r, outline);
+        FillDisc(R(6f, 6f, 94f, 94f), body);
+        Matrix4x4 saved = GUI.matrix;
+        if (kind == PowerKind.Stack)
+        {
+            FillRect(R(22f, 61f, 78f, 74f), white);
+            GUIUtility.RotateAroundPivot(6f, r.center); FillRect(R(24f, 44f, 80f, 57f), white); GUI.matrix = saved;
+            GUIUtility.RotateAroundPivot(-5f, r.center); FillRect(R(20f, 28f, 76f, 41f), white); GUI.matrix = saved;
+        }
+        else if (kind == PowerKind.Magnet)
+        {
+            Color red = bright ? new Color(1f, 0.15f, 0.12f) : new Color(0.34f, 0.22f, 0.27f);
+            FillRect(R(24f, 26f, 40f, 66f), red);
+            FillRect(R(60f, 26f, 76f, 66f), red);
+            FillRect(R(24f, 62f, 76f, 76f), red);
+            FillRect(R(24f, 26f, 40f, 40f), white);
+            FillRect(R(60f, 26f, 76f, 40f), white);
+        }
+        else
+        {
+            Color navy = bright ? new Color(0.10f, 0.08f, 0.30f) : new Color(0.14f, 0.13f, 0.22f);
+            FillDisc(R(22f, 22f, 78f, 78f), white);
+            FillRect(R(47.5f, 30f, 52.5f, 52f), navy);
+            FillRect(R(48f, 47.5f, 64f, 52.5f), navy);
+            FillDisc(R(45f, 45f, 55f, 55f), navy);
+        }
+    }
+
+    // The running power-ups, one under the other: the bright icon, clipped to the share of time that is left from the bottom up (so the top
+    // goes dull first), the name, and in the last 1.5 s it flickers.
+    void DrawPowerIcons(float x, float y, float colW)
+    {
+        if (!PowerUps.Enabled) return;
+        const float size = 44f;
+        for (int k = 0; k < 3; k++)
+        {
+            var kind = (PowerKind)k;
+            if (!PowerUps.Active(kind)) continue;
+            float frac = PowerUps.Fraction(kind);
+            float secs = PowerUps.SecondsLeft(kind);
+            bool blinkOff = secs < 1.5f && Mathf.Repeat(Time.unscaledTime * 6f, 1f) < 0.4f;
+            Color keep = GUI.color;
+            if (blinkOff) GUI.color = new Color(1f, 1f, 1f, 0.55f);
+            var r = new Rect(x, y, size, size);
+            DrawPowerIcon(r, kind, false);                               // the dull picture underneath
+            float h = size * frac;                                       // the bright part: the bottom `frac` of the icon
+            var clip = new Rect(r.x - 2f, r.yMax - h, size + 4f, h + 2f);
+            GUI.BeginClip(clip);
+            DrawPowerIcon(new Rect(r.x - clip.x, r.y - clip.y, size, size), kind, true);
+            GUI.EndClip();
+            GUI.color = keep;
+            GUI.Label(new Rect(x + size + 8f, y, Mathf.Max(60f, colW - size - 8f), size), PowerUps.KindName(kind), hudCap);
+            y += size + 8f;
         }
     }
 

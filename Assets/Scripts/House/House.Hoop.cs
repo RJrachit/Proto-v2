@@ -99,6 +99,14 @@ public partial class House
         Part(c + new Vector3(0f, -0.12f, 0f), thinX ? new Vector3(0.14f, bh * 0.48f, 0.7f) : new Vector3(0.7f, bh * 0.48f, 0.14f), BoardSquareCol, false);
     }
 
+    // Is this basket ring still worth anything? (the hoop magnet only pulls towards a ring that is open)
+    public bool HoopOpen(HouseTarget zone)
+    {
+        if (zone == null) return false;
+        if (!Subscriber) return !(zone == hoopZone2 ? hoopUsed2 : hoopUsed);
+        return !resolved && ZoneOpen(zone);
+    }
+
     // A ring (solid, dead rim) and its stringy net (not solid) centred on (x, y, z).
     void RingParts(float x, float y, float z)
     {

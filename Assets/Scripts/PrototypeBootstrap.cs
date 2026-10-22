@@ -16,6 +16,7 @@ public class PrototypeBootstrap : MonoBehaviour
         var managers = new GameObject("Managers");
         managers.AddComponent<Sfx>();
         managers.AddComponent<Juice>();
+        managers.AddComponent<PowerUps>();   // timed power-ups: badges on the road (hit them with a paper)
         managers.AddComponent<GameManager>();
         managers.AddComponent<GameUI>();
 

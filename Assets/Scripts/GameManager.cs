@@ -218,6 +218,7 @@ public class GameManager : MonoBehaviour
         Papers = startingPapers;
         papersInFlight = 0;
         SlowMoMeter = 1f;
+        PowerUps.ResetRun();
         RunTime = 0f;
         RunCoins = 0;
         RunBaskets = 0;
@@ -269,6 +270,9 @@ public class GameManager : MonoBehaviour
         papersInFlight++;
         return true;
     }
+
+    // An extra paper of a paper stack is in the air too (it costs no paper, but the run does not end while it flies).
+    public void NotePaperInFlight() { papersInFlight++; }
 
     // Every thrown paper calls this exactly once when it is finished (hit or missed).
     public void PaperDone()

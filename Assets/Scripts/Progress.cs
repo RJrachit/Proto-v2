@@ -13,6 +13,41 @@ public static class Progress
         PlayerPrefs.Save();
     }
 
+    // ---- power-up upgrades (bought in the shop with coins) ----
+    // Each power-up has 5 levels. Level 0 is the starting length; every level bought makes its timer longer (GameConfig.PowerLevelSec).
+
+    public const int PowerMaxLevel = 5;
+
+    // upgrades a power-up has: 5 each
+    public static int MaxLevel(PowerKind k) { return PowerMaxLevel; }
+
+    public static int PowerLevel(PowerKind k) { return Mathf.Clamp(PlayerPrefs.GetInt("PowerLv_" + (int)k, 0), 0, MaxLevel(k)); }
+
+    public static void SetPowerLevel(PowerKind k, int level)
+    {
+        PlayerPrefs.SetInt("PowerLv_" + (int)k, Mathf.Clamp(level, 0, MaxLevel(k)));
+        PlayerPrefs.Save();
+    }
+
+    // coins to go from level (next - 1) to level next (next = 1..5) for this power-up
+    public static int PowerCost(PowerKind k, int next)
+    {
+        var c = GameConfig.PowerUpgradeCost[(int)k];
+        return c[Mathf.Clamp(next - 1, 0, c.Length - 1)];
+    }
+
+    public static bool BuyPower(PowerKind k)
+    {
+        int lv = PowerLevel(k);
+        if (lv >= MaxLevel(k)) return false;
+        int cost = PowerCost(k, lv + 1);
+        if (Coins < cost) return false;
+        PlayerPrefs.SetInt("Coins", Coins - cost);
+        PlayerPrefs.SetInt("PowerLv_" + (int)k, lv + 1);
+        PlayerPrefs.Save();
+        return true;
+    }
+
     // ---- bike skins ----
 
     public struct Skin

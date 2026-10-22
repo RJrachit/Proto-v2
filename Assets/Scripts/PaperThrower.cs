@@ -218,7 +218,8 @@ public class PaperThrower : MonoBehaviour
 
         if (dragging)
         {
-            gm.SlowMoMeter = Mathf.Max(0f, gm.SlowMoMeter - drainPerSecond * Time.unscaledDeltaTime);
+            bool slowPower = PowerUps.Active(PowerKind.SlowZoom);   // (the slow-mo power-up: the meter does not drain)
+            if (!slowPower) gm.SlowMoMeter = Mathf.Max(0f, gm.SlowMoMeter - drainPerSecond * Time.unscaledDeltaTime);
             GameTime.Aim = gm.SlowMoMeter > 0f ? slowScale : 1f;
             GameTime.Apply();
 
@@ -560,13 +561,48 @@ public class PaperThrower : MonoBehaviour
         var gm = GameManager.Instance;
         if (!gm.TryUsePaper()) return;
 
+        LaunchPaper(v, ThrowOrigin, true);   // the aimed paper
+
+        // the paper stack power-up: two more papers, a few degrees to either side and a hair faster / slower. They cost no paper and fly
+        // together with the aimed one (they do not collide with each other).
+        if (PowerUps.Active(PowerKind.Stack))
+        {
+            Vector3 flat = v; flat.y = 0f;
+            Vector3 side = flat.sqrMagnitude > 0.001f ? Vector3.Cross(Vector3.up, flat.normalized) : transform.right;
+            var first = LastPaperCollider;
+            for (int s = -1; s <= 1; s += 2)
+            {
+                Vector3 v2 = Quaternion.AngleAxis(s * GameConfig.StackSpreadDeg, Vector3.up) * v * (1f - s * GameConfig.StackSpeedJitter);
+                gm.NotePaperInFlight();
+                LaunchPaper(v2, ThrowOrigin + side * (s * 0.25f), false);
+                if (first != null && LastPaperCollider != null) Physics.IgnoreCollision(first, LastPaperCollider);
+                if (s == -1) firstExtra = LastPaperCollider;
+                else if (firstExtra != null && LastPaperCollider != null) Physics.IgnoreCollision(firstExtra, LastPaperCollider);
+            }
+        }
+
+        Tutorial.OnThrow();
+        Rider.LastThrowTime = Time.time;   // the rider's arm swings to the side the paper flies to
+        Rider.LastThrowSide = Vector3.Dot(v, transform.right) >= 0f ? 1f : -1f;
+
+        Sfx.Play("whoosh", 0.8f, Random.Range(0.95f, 1.1f));
+        Haptics.Pulse(12);
+    }
+
+    Collider LastPaperCollider, firstExtra;
+
+    // Makes one paper at origin and throws it with velocity v. note: the first (aimed) paper writes the Console check line.
+    Paper LaunchPaper(Vector3 v, Vector3 origin, bool note)
+    {
+        var gm = GameManager.Instance;
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = "Paper";
-        go.transform.position = ThrowOrigin;
+        go.transform.position = origin;
         go.transform.localScale = new Vector3(0.45f, 0.12f, 0.32f);
         var paperRenderer = go.GetComponent<Renderer>();
         Prim.FixMaterial(paperRenderer);
         paperRenderer.material.color = Color.white;
+        LastPaperCollider = go.GetComponent<Collider>();
 
         var rb = go.AddComponent<Rigidbody>();
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
@@ -576,22 +612,17 @@ public class PaperThrower : MonoBehaviour
         else rb.AddForce(v, ForceMode.VelocityChange);
         rb.AddTorque(Random.insideUnitSphere * 6f, ForceMode.VelocityChange);
 
-        // Console check: how far this arc should reach on plain physics (the same as the aim line), and the time state it was thrown in
+        if (note)
         {
-            Vector3 q = ThrowOrigin, w = v;
+            // Console check: how far this arc should reach on plain physics (the same as the aim line), and the time state it was thrown in
+            Vector3 q = origin, w = v;
             for (int k = 0; k < 200 && q.y > 0.05f; k++) { w += Physics.gravity * 0.02f; w *= Mathf.Exp(-GameConfig.AirDrag * 0.02f); q += w * 0.02f; }
-            Vector3 flat = q - ThrowOrigin; flat.y = 0f;
-            paper.ThrowFrom = ThrowOrigin;
+            Vector3 flat = q - origin; flat.y = 0f;
+            paper.ThrowFrom = origin;
             paper.ThrowPredicted = flat.magnitude;
             paper.ThrowNote = "[timeScale " + Time.timeScale.ToString("0.00") + ", aim " + GameTime.Aim.ToString("0.00") + ", slow-mo left " + gm.SlowMoMeter.ToString("0.00") + "]";
         }
-
-        Tutorial.OnThrow();
-        Rider.LastThrowTime = Time.time;   // the rider's arm swings to the side the paper flies to
-        Rider.LastThrowSide = Vector3.Dot(v, transform.right) >= 0f ? 1f : -1f;
-
-        Sfx.Play("whoosh", 0.8f, Random.Range(0.95f, 1.1f));
-        Haptics.Pulse(12);
+        return paper;
     }
 
     void StopAiming()

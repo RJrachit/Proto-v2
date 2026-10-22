@@ -60,7 +60,39 @@ public class Paper : MonoBehaviour
         if (rb == null || rb.isKinematic) return;
         if (boosting) StepBoost();
         else if (!landed && GameConfig.AirDrag > 0f) rb.linearVelocity *= Mathf.Exp(-GameConfig.AirDrag * Time.fixedDeltaTime);   // air resistance (see GameConfig.AirDrag)
+        if (!landed && !done && PowerUps.Active(PowerKind.Magnet)) MagnetPull();
         lastVelocity = rb.linearVelocity;
+    }
+
+    // ---- the hoop magnet ----
+    // While the power-up runs, a paper in flight within MagnetRadius of an OPEN basket ring is pulled sideways over the ring's middle (a spring with
+    // damping, flat only: gravity still does the falling), so it drops straight through. Once the paper is below the ring, or the hoop is done, no pull.
+    static readonly Collider[] magnetBuf = new Collider[32];
+
+    void MagnetPull()
+    {
+        float radius = GameConfig.MagnetRadius;
+        int n = Physics.OverlapSphereNonAlloc(transform.position, radius + 1f, magnetBuf, Physics.AllLayers, QueryTriggerInteraction.Collide);
+        Vector3 best = Vector3.zero;
+        float bestD = float.MaxValue;
+        for (int i = 0; i < n; i++)
+        {
+            var c = magnetBuf[i];
+            if (c == null || !c.isTrigger) continue;
+            var t = c.GetComponent<HouseTarget>();
+            if (t == null || t.kind != HouseTarget.Kind.Hoop || t.owner == null || !t.owner.HoopOpen(t)) continue;
+            Vector3 centre = t.transform.position;
+            if (transform.position.y < centre.y - 0.2f) continue;               // already through (or under) the ring
+            float d = (centre - transform.position).magnitude;
+            if (d > radius || d >= bestD) continue;
+            bestD = d;
+            best = centre;
+        }
+        if (bestD == float.MaxValue) return;
+        Vector3 to = best - transform.position; to.y = 0f;
+        Vector3 vh = rb.linearVelocity; vh.y = 0f;
+        float k = GameConfig.MagnetPull;
+        rb.AddForce(to * k - vh * (2f * Mathf.Sqrt(k)), ForceMode.Acceleration);
     }
 
     // ---- the faster start ----
@@ -295,6 +327,8 @@ public class Paper : MonoBehaviour
         if (foliage != null) { EndBoost(); PushThroughFoliage(other, foliage); return; }
         var heart = other.GetComponent<HeartPickup>();
         if (heart != null) { heart.Collect(); return; }
+        var badge = other.GetComponent<PowerUpPickup>();
+        if (badge != null) { badge.Collect(); return; }
 
         var target = other.GetComponent<HouseTarget>();
         if (target == null) return;

@@ -87,6 +87,18 @@ public class Juice : MonoBehaviour
         Haptics.Pulse(45);
     }
 
+    // A power-up badge was hit: a burst in its colour and white, a little kick and a bright chime.
+    public static void PowerUp(Vector3 pos, Color c)
+    {
+        if (Instance == null) return;
+        Instance.Burst(pos, c, 34, 6f);
+        Instance.Burst(pos, Color.white, 18, 4f);
+        if (CameraFollow.Instance != null) CameraFollow.Instance.Kick(1f);
+        Sfx.Play("chime", 0.9f, 1.4f);
+        Sfx.Play("chime", 0.6f, 1.9f);
+        Haptics.Pulse(30);
+    }
+
     // A paper in the leaves: a few leaves of the tree's colour shake loose and drift down.
     public static void Rustle(Vector3 pos, Color leaf, float speed)
     {

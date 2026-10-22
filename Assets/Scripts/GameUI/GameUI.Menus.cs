@@ -143,6 +143,7 @@ public partial class GameUI
 
     void DrawMenu(GameManager gm, float w, float h)
     {
+        if (shopOpen) { DrawShop(gm, w, h); return; }
         UiTheme.Scrim(w, h, 1f);
         float topPad = 16f + insetT;
         DrawCoins(w - 22f - insetR, topPad);
@@ -153,7 +154,7 @@ public partial class GameUI
         {
             cx = w * 0.5f;
             // the logo and the three buttons are one block, centred in the free height (not stuck to the top with an empty bottom)
-            const float blockH = 300f + 14f + 96f + 16f + 66f + 12f + 66f;
+            const float blockH = 300f + 14f + 96f + 16f + 66f + 12f + 66f + 12f + 66f;
             float free = h - insetT - insetB;
             float top = Mathf.Max(56f + insetT, insetT + (free - blockH) * 0.5f);
             y = DrawLogo(cx, top, 92f) + 14f;
@@ -172,6 +173,10 @@ public partial class GameUI
         var playRect = new Rect(x0, y, colW, 96f);
         if (UiTheme.Tinted(Grow(playRect, Pulse(0.018f, 3f)), "PLAY", 48, UiTheme.Tone.Green)) gm.StartRun();
         y += 96f + 16f;
+
+        // Shop (power-up upgrades)
+        if (UiTheme.Tinted(new Rect(x0, y, colW, 66f), "Shop", 28, UiTheme.Tone.Green)) shopOpen = true;
+        y += 66f + 12f;
 
         // How to play (the home page only): plays the tutorial again
         if (UiTheme.Tinted(new Rect(x0, y, colW, 66f), "How to play", 28, UiTheme.Tone.Yellow)) gm.StartTutorial();

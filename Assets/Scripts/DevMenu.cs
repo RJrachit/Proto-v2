@@ -200,6 +200,31 @@ public class DevMenu : MonoBehaviour
         thrower.powerCurve = GameConfig.PowerCurve = Slider("Power curve (above 1 = finer short throws)", thrower.powerCurve, 0.5f, 3f, "0.00");
         thrower.deadZone = GameConfig.DeadZone = Slider("Min pull (shorter cancels)", thrower.deadZone, 0.03f, 0.2f, "0.00");
         GameConfig.ScreenTrueAim = Toggle("Aim looks exactly opposite the drag on screen (perspective fix)", GameConfig.ScreenTrueAim);
+        // power-ups (timed boosts picked up by hitting a floating badge with a paper; off in the tutorial)
+        GameConfig.PowerUpsOn = Toggle("Power-ups on", GameConfig.PowerUpsOn);
+        GameConfig.PowerGameTime = Toggle("Power-up timers in game time (off = real time)", GameConfig.PowerGameTime);
+        PowerUps.Always[0] = Toggle("Paper stack: ON ALL THE TIME (test)", PowerUps.Always[0]);
+        PowerUps.Always[1] = Toggle("Hoop magnet: ON ALL THE TIME (test)", PowerUps.Always[1]);
+        PowerUps.Always[2] = Toggle("Slow-mo + zoom: ON ALL THE TIME (test)", PowerUps.Always[2]);
+        GameConfig.PowerStackSec = Slider("Paper stack: seconds", GameConfig.PowerStackSec, 2f, 30f, "0.0");
+        GameConfig.PowerMagnetSec = Slider("Hoop magnet: seconds", GameConfig.PowerMagnetSec, 2f, 30f, "0.0");
+        GameConfig.PowerSlowSec = Slider("Slow-mo + zoom: seconds", GameConfig.PowerSlowSec, 2f, 30f, "0.0");
+        // shop upgrades (level 0 uses the three sliders above)
+        for (int kd = 0; kd < 3; kd++)
+            for (int lv = 1; lv <= Progress.MaxLevel((PowerKind)kd); lv++)
+                GameConfig.PowerLevelSec[kd][lv] = Slider(PowerUps.KindName((PowerKind)kd) + " upgrade " + lv + ": seconds", GameConfig.PowerLevelSec[kd][lv], 2f, 60f, "0.0");
+        for (int kd = 0; kd < 3; kd++)
+            for (int lv = 1; lv <= Progress.PowerMaxLevel; lv++)
+                GameConfig.PowerUpgradeCost[kd][lv - 1] = Mathf.RoundToInt(Slider(PowerUps.KindName((PowerKind)kd) + " upgrade " + lv + ": coin cost", GameConfig.PowerUpgradeCost[kd][lv - 1], 0f, 5000f, "0"));
+        GameConfig.PowerGapMin = Slider("Badge gap, shortest (s)", GameConfig.PowerGapMin, 4f, 60f, "0");
+        GameConfig.PowerGapMax = Slider("Badge gap, longest (s)", GameConfig.PowerGapMax, 4f, 90f, "0");
+        GameConfig.PowerQuickChance = Slider("Chance a badge comes within 4 s", GameConfig.PowerQuickChance, 0f, 0.5f, "0.00");
+        GameConfig.StackSpreadDeg = Slider("Stack: angle of the two extra papers (deg)", GameConfig.StackSpreadDeg, 0f, 15f, "0.0");
+        GameConfig.StackSpeedJitter = Slider("Stack: speed difference of the extras", GameConfig.StackSpeedJitter, 0f, 0.15f, "0.00");
+        GameConfig.MagnetRadius = Slider("Magnet radius (m)", GameConfig.MagnetRadius, 1f, 12f, "0.0");
+        GameConfig.MagnetPull = Slider("Magnet pull (higher = snappier)", GameConfig.MagnetPull, 10f, 150f, "0");
+        GameConfig.PowerZoomMult = Slider("Slow-mo power-up: aim zoom x", GameConfig.PowerZoomMult, 1f, 2.5f, "0.00");
+        thrower.drainPerSecond = GameConfig.SlowMotionDrainPerSecond = Slider("Slow-mo drain per second (higher = shorter)", thrower.drainPerSecond, 0.1f, 1f, "0.00");
         GameConfig.CancelBikePush = Toggle("Cancel the bike's push (the paper flies exactly opposite the pull)", GameConfig.CancelBikePush);
         GameConfig.AimSteady = Slider("Aim steadiness on short pulls (0 = off)", GameConfig.AimSteady, 0f, 0.9f, "0.00");
         GameConfig.AimSteadyBelow = Slider("Steadiness applies below pull", GameConfig.AimSteadyBelow, 0.08f, 0.4f, "0.00");
@@ -382,5 +407,11 @@ public class DevMenu : MonoBehaviour
         if (dbg != null) dbg.show = Toggle("FPS and error overlay", dbg.show);
         var gm = GameManager.Instance;
         if (GUILayout.Button("+10 papers", btn, GUILayout.Height(44)) && gm != null) gm.AddPapers(10);
+        if (GUILayout.Button("Start: paper stack", btn, GUILayout.Height(44))) PowerUps.Activate(PowerKind.Stack);
+        if (GUILayout.Button("Start: hoop magnet", btn, GUILayout.Height(44))) PowerUps.Activate(PowerKind.Magnet);
+        if (GUILayout.Button("Start: slow-mo + zoom", btn, GUILayout.Height(44))) PowerUps.Activate(PowerKind.SlowZoom);
+        if (GUILayout.Button("+500 coins", btn, GUILayout.Height(44))) Progress.AddCoins(500);
+        if (GUILayout.Button("Max all power-up levels", btn, GUILayout.Height(44))) for (int k = 0; k < 3; k++) Progress.SetPowerLevel((PowerKind)k, Progress.MaxLevel((PowerKind)k));
+        if (GUILayout.Button("Reset power-up levels", btn, GUILayout.Height(44))) for (int k = 0; k < 3; k++) Progress.SetPowerLevel((PowerKind)k, 0);
     }
 }

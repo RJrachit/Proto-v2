@@ -27,9 +27,9 @@ public static class GameConfig
     public static float LaunchAngleLight = 32f;
     public static float LaunchAngleFull = 70f;
     public static float TutorialPreviewShare = 0.7f;   // the same for the how-to-play lessons (0.1 - 1); a slider in the DEV menu
-    public static float PreviewShare = 0.5f;   // how much of the aim arc is drawn (0.1 - 1); a slider in the DEV menu
+    public static float PreviewShare = 0.75f;   // how much of the aim arc is drawn (0.1 - 1); a slider in the DEV menu
     // Shapes the pull: 1 = linear, above 1 = fine control on short pulls, below 1 = short pulls already go far.
-    public static float PowerCurve = 1.5f;
+    public static float PowerCurve = 1.2f;
     // Steadier aim on short pulls: a short pull turns the heading a lot for a tiny finger wobble, so the heading is smoothed there.
     // AimSteady = how strongly (0 = off, follows the finger exactly; towards 1 = slow and steady); AimSteadyBelow = pulls shorter than this
     // (fraction of the short screen edge) are smoothed, longer ones follow the finger more and more exactly. Sliders in the DEV menu.
@@ -53,6 +53,34 @@ public static class GameConfig
     // Coins earned fly as tiny golden dust from the target up to the coin counter on the HUD (no coin is drawn). A DEV menu toggle.
     public static bool CoinDust = true;
 
+    // ---- power-ups (see PowerUps.cs): badges floating on the road, hit with a paper, each one a timed boost. All of these are DEV menu sliders. ----
+    public static bool PowerUpsOn = true;
+    // Power-up upgrades (the shop): 5 levels each. Level 0 uses the seconds above; levels 1-5 use these. Cost = coins to buy that level.
+    public static float[][] PowerLevelSec =   // seconds at each level, per power-up (stack, magnet, slow-mo); index 0 is unused (level 0 uses the seconds above)
+    {
+        new float[] { 15f, 18f, 21f, 25f, 30f, 35f },
+        new float[] { 10f, 13f, 16f, 20f, 25f, 30f },
+        new float[] { 7f, 9f, 12f, 15f, 20f, 25f },
+    };
+    public static int[][] PowerUpgradeCost =   // coins to buy each upgrade, per power-up (stack, magnet, slow-mo)
+    {
+        new int[] { 50, 150, 300, 650, 1100 },
+        new int[] { 50, 150, 300, 700, 1200 },
+        new int[] { 50, 200, 350, 750, 1300 },
+    };
+    public static bool PowerGameTime = true;      // power-up timers (and the wait for the next badge) run on game time: slow-mo and aim slow-down stretch them. Off = real seconds
+    public static float PowerStackSec = 15f;       // paper stack: three papers a throw
+    public static float PowerMagnetSec = 10f;      // hoop magnet
+    public static float PowerSlowSec = 7f;         // longer slow-mo and a stronger aim zoom
+    public static float PowerGapMin = 15f;        // seconds between badges (a random time between the two) ...
+    public static float PowerGapMax = 25f;
+    public static float PowerQuickChance = 0.07f; // ... except that now and then one comes within 1.5 - 4 s of the last
+    public static float StackSpreadDeg = 5f;      // the two extra papers fly this many degrees to either side
+    public static float StackSpeedJitter = 0.03f; // and a little faster / slower (a share of the speed)
+    public static float MagnetRadius = 3f;        // metres from the ring's middle where the magnet starts to pull
+    public static float MagnetPull = 60f;         // how hard it pulls the paper over the ring (higher = snappier)
+    public static float PowerZoomMult = 1.5f;     // the aim zoom is this many times stronger during the slow-mo power-up
+
     // In the rain papers are wet and heavy: every throw lands this share shorter than the aim guide shows (0.10 = 10%). The guide itself is unchanged.
     public static float RainThrowPenalty = 0.10f;
 
@@ -65,7 +93,7 @@ public static class GameConfig
 
     // ---- slow motion while pulling
     public static float SlowMotionScale = 0.25f;
-    public static float SlowMotionDrainPerSecond = 0.35f;
+    public static float SlowMotionDrainPerSecond = 0.42f;   // (was 0.35: a little shorter slow-mo)
     public static float SlowMotionRefillPerSecond = 0.5f;
 
     // ---- tap = bell
